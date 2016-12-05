@@ -131,5 +131,31 @@ object Extractors extends App {
     }
   }
 
+  {
+    println("Boolean pattern matching")
+
+    case class multipleOf(of: Int) {
+      def unapply(i: Int): Boolean = i % of == 0
+    }
+
+    val multipleOf3 = multipleOf(3)
+    val multipleOf5 = multipleOf(5)
+    val multipleOf15 = multipleOf(15)
+
+    def fizzBuzz(n: Int) = n match {
+      case multipleOf15() => "FizzBuzz"
+      case multipleOf5() => "Buzz"
+      case multipleOf3() => "Fizz"
+      case _ => ""
+    }
+
+    assert(fizzBuzz(10) == "Buzz")
+    assert(fizzBuzz(11) == "")
+    assert(fizzBuzz(12) == "Fizz")
+    assert(fizzBuzz(13) == "")
+    assert(fizzBuzz(14) == "")
+    assert(fizzBuzz(15) == "FizzBuzz")
+  }
+
   println("OK")
 }
