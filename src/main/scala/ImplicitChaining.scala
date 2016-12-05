@@ -3,29 +3,58 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 object ImplicitChaining extends App {
+  implicits
+  println()
+  explicits
+
   case class A(x: Int)
   case class B(x: Int, y: Int)
   case class C(x: Int, y: Int, z: Int) {
     def total = x + y + z
   }
 
-  implicit def intToA(n: Int): A = Trace("intToA", n) {
-    A(n)
+  def implicits: Unit = {
+    println("With implicits:")
+
+    implicit def intToA(n: Int): A = Trace("intToA", n) {
+      A(n)
+    }
+
+    implicit def aToB[T : ClassTag](a: T)(implicit f: T => A): B = Trace("aToB", a, f) {
+      B(a.x, 2)
+    }
+
+    implicit def bToC[T : ClassTag](b: T)(implicit f: T => B): C = Trace("bToC", b, f) {
+      C(b.x, b.y, 3)
+    }
+
+    // works
+    println(1.total)
+    println(A(1).total)
+    println(B(1, 2).total)
+    println(C(1, 2, 3).total)
   }
 
-  implicit def aToB[T : ClassTag](a: T)(implicit f: T => A): B = Trace("aToB", a, f) {
-    B(a.x, 2)
-  }
+  def explicits: Unit = {
+    println("Without implicits:")
 
-  implicit def bToC[T : ClassTag](b: T)(implicit f: T => B): C = Trace("bToC", b, f) {
-    C(b.x, b.y, 3)
-  }
+    def intToA(n: Int): A = Trace("intToA", n) {
+      A(n)
+    }
 
-  // works
-  println(1.total)
-  println(A(1).total)
-  println(B(1, 2).total)
-  println(C(1, 2, 3).total)
+    def aToB[T : ClassTag](a: T)(f: T => A): B = Trace("aToB", a, f) {
+      B(f(a).x, 2)
+    }
+
+    def bToC[T : ClassTag](b: T)(f: T => B): C = Trace("bToC", b, f) {
+      C(f(b).x, f(b).y, 3)
+    }
+
+    println(bToC(1)(i => aToB(i)(intToA)).total)
+    println(bToC(A(1))(a => aToB(a)($conforms)).total)
+    println(bToC(B(1, 2))($conforms).total)
+    println(C(1, 2, 3).total)
+  }
 
   object Trace {
     private val Indentation = "  "
