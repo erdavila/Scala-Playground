@@ -132,7 +132,7 @@ object Extractors extends App {
   }
 
   {
-    println("Boolean pattern matching")
+    println("Boolean pattern matching...")
 
     case class multipleOf(of: Int) {
       def unapply(i: Int): Boolean = i % of == 0
@@ -155,6 +155,30 @@ object Extractors extends App {
     assert(fizzBuzz(13) == "")
     assert(fizzBuzz(14) == "")
     assert(fizzBuzz(15) == "FizzBuzz")
+  }
+
+  {
+    println("@ operator...")
+
+    val x = Seq(Option(1), Option(2), Option(3))
+
+    {
+      x match {
+        case a @ Seq(b @ Some(c), d @ _*) =>
+          assert(a == Seq(Option(1), Option(2), Option(3)))
+          assert(b == Some(1))
+          assert(c == 1)
+          assert(d == Seq(Option(2), Option(3)))
+      }
+    }
+
+    {
+      val a @ Seq(b @ Some(c), d @ _*) = x
+      assert(a == Seq(Option(1), Option(2), Option(3)))
+      assert(b == Some(1))
+      assert(c == 1)
+      assert(d == Seq(Option(2), Option(3)))
+    }
   }
 
   println("OK")
