@@ -48,4 +48,18 @@ object Covariant extends Base[Covariant] {
   expectsMiddle(ofMiddle.returnsLower())
   expectsBottom(ofMiddle.returnsLower())
   */
+
+  class Producer[+T] {
+    def produce(): T = ???
+  }
+  val `producer of Middle (and Bottom)` : Producer[Middle] = ???
+  val `producer of Top (and Middle and Bottom)`: Producer[Top] = `producer of Middle (and Bottom)`
+  //val `producer of Bottom` : Producer[Bottom] = `producer of Middle (and Bottom)`  // type mismatch;  found   : variance.Covariant.Producer[variance.Middle]  required: variance.Covariant.Producer[variance.Bottom]
+
+  class Consumer[+T] {
+    def consume[U >: T](value: U): Unit = ???
+  }
+  val `consumer of Middle (and Top)`: Consumer[Middle] = ???
+  val `consumer of Top`: Consumer[Top] = `consumer of Middle (and Top)`
+  //val `consumer of Bottom (and Top and Middle)`: Consumer[Bottom] = `consumer of Middle (and Top)`  //  type mismatch;  found   : variance.Covariant.Consumer[variance.Middle]  required: variance.Covariant.Consumer[variance.Bottom]
 }

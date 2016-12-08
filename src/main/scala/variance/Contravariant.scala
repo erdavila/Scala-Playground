@@ -48,4 +48,18 @@ object Contravariant extends Base[Contravariant] {
   expectsTop(ofMiddle.returnsLower())
   expectsMiddle(ofMiddle.returnsLower())
   expectsBottom(ofMiddle.returnsLower())
+
+  class Producer[-T] {
+    def produce[U <: T](): U = ???
+  }
+  val `producer of Middle (and Top)` : Producer[Middle] = ???
+  //val `producer of Top`: Producer[Top] = `producer of Middle (and Top)`  // type mismatch;  found   : variance.Contravariant.Producer[variance.Middle]  required: variance.Contravariant.Producer[variance.Top]
+  val `producer of Bottom (and Top and Middle)` : Producer[Bottom] = `producer of Middle (and Top)`
+
+  class Consumer[-T] {
+    def consume[T](value: T): Unit = ???
+  }
+  val `consumer of Middle (and Bottom)`: Consumer[Middle] = ???
+  //val `consumer of Top (and Middle and Bottom)`: Consumer[Top] = `consumer of Middle (and Bottom)`  // type mismatch;  found   : variance.Contravariant.Consumer[variance.Middle]  required: variance.Contravariant.Consumer[variance.Top]
+  val `consumer of Bottom`: Consumer[Bottom] = `consumer of Middle (and Bottom)`
 }
