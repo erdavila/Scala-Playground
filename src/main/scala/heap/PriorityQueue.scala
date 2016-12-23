@@ -5,11 +5,14 @@ import scala.collection.GenTraversableOnce
 import scala.collection.mutable.ArrayBuffer
 
 object PriorityQueue {
-  private[heap] sealed trait IndexNotification[T]
-  private[heap] case class Appended[T](elem: T, index: Int) extends IndexNotification[T]
-  private[heap] case class Moved[T](elem: T, toIndex: Int, fromIndex: Int) extends IndexNotification[T]
-  private[heap] case class Swapped[T](parent: T, parentIndex: Int, child: T, childIndex: Int) extends IndexNotification[T]
-  private[heap] case class Removed[T](elem: T, index: Int) extends IndexNotification[T]
+  private[heap] sealed abstract class IndexNotification[T](elemAndIndex: (T, Int)*) extends Traversable[(T, Int)] {
+    def foreach[U](f: ((T, Int)) => U) = elemAndIndex.foreach(f)
+  }
+
+  private[heap] case class Appended[T](elem: T, index: Int) extends IndexNotification[T](elem -> index)
+  private[heap] case class Moved[T](elem: T, toIndex: Int, fromIndex: Int) extends IndexNotification[T](elem -> toIndex)
+  private[heap] case class Swapped[T](parent: T, parentIndex: Int, child: T, childIndex: Int) extends IndexNotification[T](parent -> parentIndex, child -> childIndex)
+  private[heap] case class Removed[T](elem: T, index: Int) extends IndexNotification[T](elem -> index)
 
   private[heap] type Notify[T] = PartialFunction[IndexNotification[T], Unit]
 }
@@ -46,17 +49,18 @@ abstract class PriorityQueue[T](
     first
   }
 
-  private def moveLastTo(index: Int): Unit = {
+  private[heap] def moveLastTo(index: Int): Unit = {
     val lastIdx = lastIndex
     val elem = values.remove(lastIdx)
 
     if (index == lastIdx) {
       notify(Removed(elem, lastIdx))
     } else {
-      assert(lastIdx > index)
+      assert(index < lastIdx, s"$index >= $lastIdx")
       values(index) = elem
       notify(Moved(elem, index, lastIdx))
       heapDown(index)
+      heapUp(index)
     }
   }
 
