@@ -1,15 +1,40 @@
 package heap
 
 import scala.annotation.tailrec
+import scala.collection.GenTraversableOnce
 import scala.collection.mutable.ArrayBuffer
 
-abstract class PriorityQueue[T](initialValues: Iterable[T], order: Int, ord: Ordering[T]) {
-  protected[heap] var swapCount = 0
+object PriorityQueue {
+  private[heap] sealed trait IndexNotification[T]
+  private[heap] case class Appended[T](elem: T, index: Int) extends IndexNotification[T]
+  private[heap] case class Moved[T](elem: T, toIndex: Int, fromIndex: Int) extends IndexNotification[T]
+  private[heap] case class Swapped[T](parent: T, parentIndex: Int, child: T, childIndex: Int) extends IndexNotification[T]
+  private[heap] case class Removed[T](elem: T, index: Int) extends IndexNotification[T]
+
+  private[heap] type Notify[T] = PartialFunction[IndexNotification[T], Unit]
+}
+
+abstract class PriorityQueue[T](
+    initialValues: GenTraversableOnce[T],
+    order: Int,
+    notifyOpt: Option[PriorityQueue.Notify[T]],
+    ord: Ordering[T]) {
+
+  import PriorityQueue._
+
   private val values = ArrayBuffer.empty[T]
   initialValues foreach put
 
-  def put(x: T): Unit = {
-    values.append(x)
+  def size: Int = values.size
+  def isEmpty: Boolean = values.isEmpty
+  def nonEmpty: Boolean = values.nonEmpty
+
+  private def lastIndex = values.size - 1
+
+  def put(elem: T): Unit = {
+    values.append(elem)
+    notify(Appended(elem, lastIndex))
+
     heapUp(size - 1)
   }
 
@@ -17,19 +42,25 @@ abstract class PriorityQueue[T](initialValues: Iterable[T], order: Int, ord: Ord
 
   def removeFirst(): T = {
     val first = values(0)
-    val last = values.remove(values.size - 1)
-    if (values.nonEmpty) {
-      values(0) = last
-      heapDown()
-    }
+    moveLastTo(0)
     first
   }
 
-  def size: Int = values.size
-  def isEmpty: Boolean = values.isEmpty
-  def nonEmpty: Boolean = values.nonEmpty
+  private def moveLastTo(index: Int): Unit = {
+    val lastIdx = lastIndex
+    val elem = values.remove(lastIdx)
 
-  private def heapDown(parentIndex: Int = 0): Unit = {
+    if (index == lastIdx) {
+      notify(Removed(elem, lastIdx))
+    } else {
+      assert(lastIdx > index)
+      values(index) = elem
+      notify(Moved(elem, index, lastIdx))
+      heapDown(index)
+    }
+  }
+
+  private def heapDown(parentIndex: Int): Unit = {
     val firstChildIndex = order * parentIndex + 1
 
     (0 until order)
@@ -53,15 +84,20 @@ abstract class PriorityQueue[T](initialValues: Iterable[T], order: Int, ord: Ord
 
   private def rearrange(parentIndex: Int, childIndex: Int): Boolean =
     if (childIndex < size) {
-      val parentValue = values(parentIndex)
-      val childValue = values(childIndex)
-      if (ord.gt(parentValue, childValue)) {
-        values(parentIndex) = childValue
-        values(childIndex) = parentValue
-        swapCount += 1
+      val parent = values(parentIndex)
+      val child = values(childIndex)
+      if (ord.lt(child, parent)) {
+        val newParent = child
+        val newChild = parent
+        values(parentIndex) = newParent
+        values(childIndex) = newChild
+        notify(Swapped(newParent, parentIndex, newChild, childIndex))
         true
       } else false
     } else false
+
+  private def notify(notification: => IndexNotification[T]): Unit =
+    notifyOpt foreach { _.lift(notification) }
 
   /*
    * order = 2:
@@ -82,8 +118,22 @@ abstract class PriorityQueue[T](initialValues: Iterable[T], order: Int, ord: Ord
    */
 }
 
-class MinPriorityQueue[T](initialValues: Iterable[T], val order: Int = 2)(implicit ord: Ordering[T])
-    extends PriorityQueue(initialValues, order, ord)
+class MinPriorityQueue[T] private[heap] (
+    initialValues: GenTraversableOnce[T],
+    val order: Int,
+    notifyOpt: Option[PriorityQueue.Notify[T]])(implicit ord: Ordering[T])
+  extends PriorityQueue(initialValues, order, notifyOpt, ord) {
 
-class MaxPriorityQueue[T](initialValues: Iterable[T], val order: Int = 2)(implicit ord: Ordering[T])
-    extends PriorityQueue(initialValues, order, ord.reverse)
+  def this(initialValues: GenTraversableOnce[T], order: Int = 2)(implicit ord: Ordering[T]) =
+    this(initialValues, order, None)(ord)
+}
+
+class MaxPriorityQueue[T] private[heap] (
+    initialValues: GenTraversableOnce[T],
+    val order: Int,
+    notifyOpt: Option[PriorityQueue.Notify[T]])(implicit ord: Ordering[T])
+  extends PriorityQueue(initialValues, order, notifyOpt, ord.reverse) {
+
+  def this(initialValues: GenTraversableOnce[T], order: Int = 2)(implicit ord: Ordering[T]) =
+    this(initialValues, order, None)(ord)
+}
