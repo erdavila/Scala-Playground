@@ -13,14 +13,14 @@ object PriorityQueueTest extends App {
   val sortedValues = values.sorted
 
   for (order <- 1 to 10) {
-    val prioQ = new PriorityQueue(values, order = order)
+    val prioQ = new MinPriorityQueue(values, order = order)
     println("order = " + order)
     println("swapCount = " + prioQ.swapCount)
     prioQ.swapCount = 0
     sortedValues foreach { value =>
       assert(prioQ.nonEmpty)
-      assert(prioQ.min == value)
-      assert(prioQ.removeMin() == value)
+      assert(prioQ.first == value)
+      assert(prioQ.removeFirst() == value)
     }
     assert(prioQ.isEmpty)
     println("swapCount = " + prioQ.swapCount)

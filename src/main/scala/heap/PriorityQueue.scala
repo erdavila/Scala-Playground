@@ -3,7 +3,7 @@ package heap
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class PriorityQueue[T](initialValues: Iterable[T], order: Int)(implicit ord: Ordering[T]) {
+abstract class PriorityQueue[T](initialValues: Iterable[T], order: Int, ord: Ordering[T]) {
   protected[heap] var swapCount = 0
   private val values = ArrayBuffer.empty[T]
   initialValues foreach put
@@ -13,16 +13,16 @@ class PriorityQueue[T](initialValues: Iterable[T], order: Int)(implicit ord: Ord
     heapUp(size - 1)
   }
 
-  def min: T = values(0)
+  def first: T = values(0)
 
-  def removeMin(): T = {
-    val min = values(0)
+  def removeFirst(): T = {
+    val first = values(0)
     val last = values.remove(values.size - 1)
     if (values.nonEmpty) {
       values(0) = last
       heapDown()
     }
-    min
+    first
   }
 
   def size: Int = values.size
@@ -81,3 +81,9 @@ class PriorityQueue[T](initialValues: Iterable[T], order: Int)(implicit ord: Ord
    * 4  5  6  7  8  9  10  11  12
    */
 }
+
+class MinPriorityQueue[T](initialValues: Iterable[T], val order: Int = 2)(implicit ord: Ordering[T])
+    extends PriorityQueue(initialValues, order, ord)
+
+class MaxPriorityQueue[T](initialValues: Iterable[T], val order: Int = 2)(implicit ord: Ordering[T])
+    extends PriorityQueue(initialValues, order, ord.reverse)
