@@ -3,14 +3,13 @@ import scala.language.implicitConversions
 
 object ConditionalOperator {
   object General {
-    class Condition[+T](cond: Boolean, trueBlock: => T) {
-      private val trueValue: Option[T] = if(cond) Some(trueBlock) else None
-      def apply[R >: T](falseBlock: => R): R = trueValue getOrElse falseBlock
-      def toOption: Option[T] = trueValue
+    class Condition[+T](opt: Option[T]) {
+      def apply[R >: T](falseBlock: => R): R = opt getOrElse falseBlock
+      def toOption: Option[T] = opt
     }
 
     implicit class ConditionWrapper(cond: Boolean) {
-      def ?? [T](trueBlock: => T): Condition[T] = new Condition(cond, trueBlock)
+      def ?? [T](trueBlock: => T): Condition[T] = new Condition(if (cond) Some(trueBlock) else None)
     }
 
     implicit def condition2Option[T](cond: Condition[T]): Option[T] = cond.toOption
