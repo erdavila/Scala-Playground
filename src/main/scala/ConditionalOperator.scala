@@ -88,15 +88,17 @@ object ConditionalOperatorTest extends App {
   val pf: Parent = false ?? Child() :: Parent()
   assert(pf == Parent())
 
-  val executedBlocks = mutable.Set.empty[Boolean]
+  {
+    val executedBlocks = mutable.Set.empty[Boolean]
+    true ?? { executedBlocks += true } :: { executedBlocks += false }
+    assert(executedBlocks == Set(true))
+  }
 
-  executedBlocks.clear()
-  true ?? { executedBlocks += true } :: { executedBlocks += false }
-  assert(executedBlocks == Set(true))
-
-  executedBlocks.clear()
-  false ?? { executedBlocks += true } :: { executedBlocks += false }
-  assert(executedBlocks == Set(false))
+  {
+    val executedBlocks = mutable.Set.empty[Boolean]
+    false ?? { executedBlocks += true } :: { executedBlocks += false }
+    assert(executedBlocks == Set(false))
+  }
 
   // ==
   {
