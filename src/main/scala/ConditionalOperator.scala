@@ -1,49 +1,12 @@
 import scala.collection.mutable
-import scala.language.implicitConversions
 
 object ConditionalOperator {
-  object General {
-    class Condition[+T](opt: Option[T]) {
-      def apply[R >: T](falseBlock: => R): R = opt getOrElse falseBlock
-      def toOption: Option[T] = opt
-    }
-
-    implicit class ConditionWrapper(cond: Boolean) {
-      def ?? [T](trueBlock: => T): Condition[T] = new Condition(if (cond) Some(trueBlock) else None)
-    }
-
-    implicit def condition2Option[T](cond: Condition[T]): Option[T] = cond.toOption
+  implicit class ConditionWrapper(cond: Boolean) {
+    def ?? [T](trueBlock: => T): Option[T] = if (cond) Some(trueBlock) else None
   }
-
-  object Specialized {
-    trait Condition[+T] {
-      def apply[R >: T](falseBlock: => R): R
-      def toOption: Option[T]
-    }
-
-    class TrueCondition[T](trueValue: T) extends Condition[T] {
-      def apply[R >: T](falseBlock: => R) = trueValue
-      def toOption: Option[T] = Some(trueValue)
-    }
-
-    class FalseCondition[T] extends Condition[T] {
-      def apply[R >: T](falseBlock: => R) = falseBlock
-      def toOption: Option[T] = None
-    }
-
-    implicit class ConditionWrapper(cond: Boolean) {
-      def ?? [T](trueBlock: => T): Condition[T] = if (cond) new TrueCondition(trueBlock) else new FalseCondition()
-    }
-
-    implicit def condition2Option[T](cond: Condition[T]): Option[T] = cond.toOption
-  }
-
-  //val Implementation = General
-  val Implementation = Specialized
-  import Implementation._
 
   implicit class FalseBlockWrapper[F](falseBlock: => F) {
-    def :: [R >: F](condition: Condition[R]): R = condition(falseBlock)
+    def :: [R >: F](opt: Option[R]): R = opt getOrElse falseBlock
   }
 
   class Base
@@ -63,7 +26,6 @@ object ConditionalOperator {
 
 object ConditionalOperatorTest extends App {
   import ConditionalOperator._
-  import ConditionalOperator.Implementation._
 
   // ==
   val x: Int = true ?? 1 :: 2
@@ -123,10 +85,10 @@ object ConditionalOperatorTest extends App {
     type R = Int
     val t: T = 1
     val f: F = 2
-    val c: Condition[T] = ConditionWrapper(true).??[T](t)    // T = Int
+    val opt: Option[T] = ConditionWrapper(true).??[T](t)     // T = Int
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Int
-    val r: R = fbw.::[R](c)                                  // R = Int >: Int = F
-    val rr: R = c.apply[R](f)                                // R = Int >: Int = T
+    val r: R = fbw.::[R](opt)                                // R = Int >: Int = F
+    val rr: R = opt.getOrElse[R](f)                          // R = Int >: Int = T
   }
 
   // <>
@@ -137,10 +99,10 @@ object ConditionalOperatorTest extends App {
     type R = Base
     val t: T = Derived1()
     val f: F = Derived2()
-    val c: Condition[T] = ConditionWrapper(true).??[T](t)    // T = Derived1
+    val opt: Option[T] = ConditionWrapper(true).??[T](t)     // T = Derived1
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Derived2
-    val r: R = fbw.::[R](c)                                  // R = Base >: Derived2 = F
-    val rr: R = c.apply[R](f)                                // R = Base >: Derived1 = T
+    val r: R = fbw.::[R](opt)                                // R = Base >: Derived2 = F
+    val rr: R = opt.getOrElse[R](f)                          // R = Base >: Derived1 = T
   }
 
   // >
@@ -151,10 +113,10 @@ object ConditionalOperatorTest extends App {
     type R = Parent
     val t: T = Parent()
     val f: F = Child()
-    val c: Condition[T] = ConditionWrapper(true).??[T](t)    // T = Parent
+    val opt: Option[T] = ConditionWrapper(true).??[T](t)     // T = Parent
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Child
-    val r: R = fbw.::[R](c)                                  // R = Parent >: Child = F
-    val rr: R = c.apply[R](f)                                // R = Parent >: Parent = T
+    val r: R = fbw.::[R](opt)                                // R = Parent >: Child = F
+    val rr: R = opt.getOrElse[R](f)                          // R = Parent >: Parent = T
   }
 
   // <
@@ -165,10 +127,10 @@ object ConditionalOperatorTest extends App {
     type R = Parent
     val t: T = Child()
     val f: F = Parent()
-    val c: Condition[T] = ConditionWrapper(true).??[T](t)    // T = Child
+    val opt: Option[T] = ConditionWrapper(true).??[T](t)     // T = Child
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Parent
-    val r: R = fbw.::[R](c)                                  // R = Parent >: Parent = F
-    val rr: R = c.apply[R](f)                                // R = Parent >: Child = T
+    val r: R = fbw.::[R](opt)                                // R = Parent >: Parent = F
+    val rr: R = opt.getOrElse[R](f)                          // R = Parent >: Child = T
   }
 
   println("OK!")
