@@ -1,32 +1,41 @@
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 object ConditionalOperator {
   object General {
     class Condition[+T](cond: Boolean, trueBlock: => T) {
       def apply[R >: T](falseBlock: => R): R = if (cond) trueBlock else falseBlock
+      def toOption: Option[T] = if (cond) Some(trueBlock) else None
     }
 
     implicit class ConditionWrapper(cond: Boolean) {
       def ?? [T](trueBlock: => T): Condition[T] = new Condition(cond, trueBlock)
     }
+
+    implicit def condition2Option[T](cond: Condition[T]): Option[T] = cond.toOption
   }
 
   object Specialized {
     trait Condition[+T] {
       def apply[R >: T](falseBlock: => R): R
+      def toOption: Option[T]
     }
 
     class TrueCondition[T](trueBlock: => T) extends Condition[T] {
       def apply[R >: T](falseBlock: => R) = trueBlock
+      def toOption: Option[T] = Some(trueBlock)
     }
 
     class FalseCondition[T] extends Condition[T] {
       def apply[R >: T](falseBlock: => R) = falseBlock
+      def toOption: Option[T] = None
     }
 
     implicit class ConditionWrapper(cond: Boolean) {
       def ?? [T](trueBlock: => T): Condition[T] = if (cond) new TrueCondition(trueBlock) else new FalseCondition()
     }
+
+    implicit def condition2Option[T](cond: Condition[T]): Option[T] = cond.toOption
   }
 
   //val Implementation = General
@@ -87,6 +96,12 @@ object ConditionalOperatorTest extends App {
   // <
   val pf: Parent = false ?? Child() :: Parent()
   assert(pf == Parent())
+
+  val optT: Option[Int] = true ?? 7
+  assert(optT == Some(7))
+
+  val optF: Option[Int] = false ?? 7
+  assert(optF == None)
 
   {
     val executedBlocks = mutable.Set.empty[Boolean]
