@@ -1,0 +1,5 @@
+- Investigate:
+    Return type of
+        (_: A => Just[B]) >=> (_: B => Just[C])
+    should be
+        A => MaybeMonad[C]
