@@ -8,4 +8,6 @@ package object monads {
   type MaybeMonad[+A] = Option[A]
 
   type ReaderMonad[-E, +A] = E => A
+
+  type StateMonad[S, A] = S => (A, S)
 }
