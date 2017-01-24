@@ -10,4 +10,6 @@ package object monads {
   type ReaderMonad[-E, +A] = E => A
 
   type StateMonad[S, A] = S => (A, S)
+
+  type WriterMonad[W, A] = (W, A)
 }
