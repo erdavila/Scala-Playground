@@ -5,6 +5,13 @@ import scala.reflect.macros.blackbox.Context
 class MonadMacros(val c: Context) {
   import c.universe._
 
+  def bindImpl(f: c.Tree): c.Tree = {
+    val obj = c.prefix
+    q"""
+      $obj >>= $f
+    """
+  }
+
   def fmapImpl(f: c.Tree): c.Tree = {
     val obj = c.prefix
     val x = freshParam("x")
