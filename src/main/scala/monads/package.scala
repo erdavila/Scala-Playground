@@ -1,6 +1,8 @@
 package object monads {
   type CollectionMonad[+A] = Traversable[A]
 
+  type ContinuationMonad[R, +A] = (A => R) => R
+
   type IdentityMonad[A] = A
 
   type IOMonad[+A] = () => A
