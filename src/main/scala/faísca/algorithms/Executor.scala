@@ -199,4 +199,16 @@ class DistinctStreamer[A](previous: Streamer[A]) extends Streamer[A] {
         None
       }
     }
+
+  def length() = remainingItemsInStreamer()
+
+  @tailrec
+  private def remainingItemsInStreamer(): Long =
+    redistributor.next() match {
+      case Some(value) => (if (uniqueValues.add(value)) 1 else 0) + remainingItemsInStreamer()
+      case None => {
+        uniqueValues.clear()
+        0
+      }
+    }
 }
