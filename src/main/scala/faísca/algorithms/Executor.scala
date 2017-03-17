@@ -1,11 +1,11 @@
 package faísca.algorithms
 
 import scala.annotation.tailrec
-import scala.collection.GenTraversable
-import scala.collection.mutable
+import scala.collection.{GenTraversable, mutable}
 
 trait Streamer[A] {
   protected def fetchNext(): Option[A]
+
   private var finalized = false
 
   final def next(): Option[A] =
@@ -14,13 +14,28 @@ trait Streamer[A] {
       finalized = true
       None
     }
-
-  def length(): Long
 }
 
 object Streamer {
-  def empty[A]: Streamer[A] = ???
-  def apply[A](as: GenTraversable[A]): Streamer[A] = ???
+  def empty[A]: Streamer[A] = new Streamer[A] {
+    protected def fetchNext(): Option[A] = None
+  }
+
+  def apply[A](as: Iterator[A]): Streamer[A] = new Streamer[A] {
+    protected def fetchNext(): Option[A] =
+      if (as.hasNext) Some(as.next())
+      else None
+  }
+
+  def apply[A](as: GenTraversable[A]): Streamer[A] = apply(as.toIterator)
+
+  def apply[A](channel: InputChannel[A]): Streamer[A] = new Streamer[A] {
+    protected def fetchNext(): Option[A] = channel.get() match {
+      case Right(value) => Some(value)
+      case Left(NoDataAvailable) => fetchNext()
+      case Left(ChannelClosed) => None
+    }
+  }
 }
 
 class MapStreamer[A, B](f: A => B, previous: Streamer[A]) extends Streamer[B] {
@@ -29,8 +44,6 @@ class MapStreamer[A, B](f: A => B, previous: Streamer[A]) extends Streamer[B] {
       case Some(a) => Some(f(a))
       case None => None
     }
-
-  def length() = previous.length()
 }
 
 class FlatMapStreamer[A, B](f: A => GenTraversable[B], previous: Streamer[A]) extends Streamer[B] {
@@ -51,19 +64,6 @@ class FlatMapStreamer[A, B](f: A => GenTraversable[B], previous: Streamer[A]) ex
         }
       }
     }
-
-  def length() = remainingItemsInStreamer()
-
-  @tailrec
-  private def remainingItemsInStreamer(): Long =
-    previous.next() match {
-      case Some(value) => {
-        val replacement = f(value)
-        val replacementLen = replacement.foldLeft(0) { (n, _) => n + 1 }
-        replacementLen + remainingItemsInStreamer()
-      }
-      case None => 0
-    }
 }
 
 class FilterStreamer[A](f: A => Boolean, previous: Streamer[A]) extends Streamer[A] {
@@ -73,18 +73,6 @@ class FilterStreamer[A](f: A => Boolean, previous: Streamer[A]) extends Streamer
       case n@Some(a) => if (f(a)) n else fetchNext()
       case None => None
     }
-
-  def length() = remainingItemsInStreamer()
-
-  @tailrec
-  private def remainingItemsInStreamer(): Long =
-    previous.next() match {
-      case Some(value) => {
-        val inc = if (f(value)) 1 else 0
-        inc + remainingItemsInStreamer()
-      }
-      case None => 0
-    }
 }
 
 sealed trait ChannelSignal
@@ -92,7 +80,28 @@ case object NoDataAvailable extends ChannelSignal
 case object ChannelClosed extends ChannelSignal
 
 trait InputChannel[A] {
-  def get(): Either[ChannelSignal, A]
+  def get(): Either[ChannelSignal, A] =
+    if (closed) Left(ChannelClosed)
+    else fetch() match {
+      case cc@Left(ChannelClosed) => {
+        closed = true
+        cc
+      }
+      case e => e
+    }
+
+  private var closed = false
+
+  protected def fetch(): Either[ChannelSignal, A]
+}
+
+object InputChannel {
+  def apply[A](streamer: Streamer[A]): InputChannel[A] = new InputChannel[A] {
+    def fetch(): Either[ChannelSignal, A] = streamer.next() match {
+      case Some(value) => Right(value)
+      case None => Left(ChannelClosed)
+    }
+  }
 }
 
 class InputChannelsAggregator[A](inputChannels: InputChannel[A]*) extends InputChannel[A] {
@@ -100,7 +109,7 @@ class InputChannelsAggregator[A](inputChannels: InputChannel[A]*) extends InputC
   private var nextChannelNumber = 0
 
   @tailrec
-  final def get(): Either[ChannelSignal, A] =
+  final def fetch(): Either[ChannelSignal, A] =
     if (channels.isEmpty) Left(ChannelClosed)
     else channels(nextChannelNumber).get() match {
       case v@Right(_) => {
@@ -109,11 +118,11 @@ class InputChannelsAggregator[A](inputChannels: InputChannel[A]*) extends InputC
       }
       case Left(NoDataAvailable) => {
         incrementNextChannelNumber()
-        get()
+        fetch()
       }
       case Left(ChannelClosed) => {
         channels.remove(nextChannelNumber)
-        get()
+        fetch()
       }
     }
 
@@ -128,62 +137,39 @@ trait OutputChannel[A] {
   def close(): Unit
 }
 
-class OutputChannelsMultiplexer[A](outputChannels: Option[OutputChannel[A]]*) {
-  def put(value: A): Boolean = {
-    val destinationExecutor = value.hashCode() % outputChannels.length
-    outputChannels(destinationExecutor) match {
-      case Some(channel) => {
-        channel.put(value)
-        true
+class MultiplexerStreamer[A](source: Streamer[A], outputChannels: Seq[Option[OutputChannel[A]]]) extends Streamer[A] {
+  @tailrec
+  final protected def fetchNext(): Option[A] = source.next() match {
+    case o@Some(value) => {
+      val destinationExecutorNumber = value.hashCode() % outputChannels.length
+      outputChannels(destinationExecutorNumber) match {
+        case Some(channel) => {
+          channel.put(value)
+          fetchNext()
+        }
+        case None => o
       }
-      case None => false
+    }
+    case None => {
+      outputChannels.foreach { _.foreach { _.close() } }
+      None
     }
   }
-
-  def close(): Unit = outputChannels.foreach { _.foreach { _.close() } }
-}
-
-class StreamerInputChannelAdapter[A](streamer: Streamer[A]) extends InputChannel[A] {
-  def get(): Either[ChannelSignal, A] =
-    streamer.next() match {
-      case Some(value) => Right(value)
-      case None => Left(ChannelClosed)
-    }
 }
 
 class RedistributeStreamer[A](previous: Streamer[A]) extends Streamer[A] {
-  private val inputChannels = new InputChannelsAggregator[A](new StreamerInputChannelAdapter(previous), ???)
-  private val outputChannels = new OutputChannelsMultiplexer[A](???)
+  private val executorNumber = ??? : Int
+  private val executorsOutputChannels = ??? : Seq[OutputChannel[A]]
+  private val otherExecutorsOutputChannels = executorsOutputChannels.zipWithIndex map { case (ch, i) => if (ch == executorNumber) None else Some(ch) }
 
-  @tailrec
-  final protected def fetchNext(): Option[A] =
-    inputChannels.get() match {
-      case Right(value) => {
-        val valueWasMultiplexed = outputChannels.put(value)
-        if (valueWasMultiplexed) fetchNext() else Some(value)
-      }
-      case Left(NoDataAvailable) => fetchNext()
-      case Left(ChannelClosed) => {
-        outputChannels.close()
-        None
-      }
-    }
+  private val muxStreamer = new MultiplexerStreamer(previous, otherExecutorsOutputChannels)
+  private val muxChannel = InputChannel(muxStreamer)
 
-  def length() = remainingItemsInStreamer()
+  private val otherExecutorsInputChannels = ??? : Seq[InputChannel[A]]
+  private val aggregatorChannel = new InputChannelsAggregator((muxChannel +: otherExecutorsInputChannels): _*)
+  private val aggregatorStreamer = Streamer(aggregatorChannel)
 
-  @tailrec
-  private def remainingItemsInStreamer(): Long =
-    inputChannels.get() match {
-      case Right(value) => {
-        val valueWasMultiplexed = outputChannels.put(value)
-        (if (valueWasMultiplexed) 0 else 1) + remainingItemsInStreamer()
-      }
-      case Left(NoDataAvailable) => remainingItemsInStreamer()
-      case Left(ChannelClosed) => {
-        outputChannels.close()
-        0
-      }
-    }
+  protected final def fetchNext(): Option[A] = aggregatorStreamer.next()
 }
 
 class DistinctStreamer[A](previous: Streamer[A]) extends Streamer[A] {
@@ -197,18 +183,6 @@ class DistinctStreamer[A](previous: Streamer[A]) extends Streamer[A] {
       case None => {
         uniqueValues.clear()
         None
-      }
-    }
-
-  def length() = remainingItemsInStreamer()
-
-  @tailrec
-  private def remainingItemsInStreamer(): Long =
-    redistributor.next() match {
-      case Some(value) => (if (uniqueValues.add(value)) 1 else 0) + remainingItemsInStreamer()
-      case None => {
-        uniqueValues.clear()
-        0
       }
     }
 }
