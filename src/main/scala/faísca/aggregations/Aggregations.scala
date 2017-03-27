@@ -6,19 +6,19 @@ class Aggregations[T] {
     aggregate(0L)
       { (count, _) => count + 1 }
       { _ + _ }
-      { count => count }
+      { identity _ }
 
   def min()(implicit ord: Ordering[T]): Option[T] =
     aggregate(None: Option[T])
       { (min, elem) => min map { ord.min(_, elem) } orElse Some(elem) }
       { _ orElse _ }
-      { elem => elem }
+      { identity _ }
 
   def max()(implicit ord: Ordering[T]): Option[T] =
     aggregate(None: Option[T])
       { (max, elem) => max map { ord.max(_, elem) } orElse Some(elem) }
       { _ orElse _ }
-      { elem => elem }
+      { identity _ }
 
   def sum()(implicit num: Numeric[T]): T =
     aggregate(num.zero)
