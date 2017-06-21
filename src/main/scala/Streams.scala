@@ -17,4 +17,8 @@ object Streams extends App {
 
   val fibo2 = Stream.iterate((0, 1)) { case (first, second) => (second, first + second) } map { case (left, right) => left }
   printSome(fibo2, 10)
+
+  def sieve(s: Stream[Int]): Stream[Int] = s.head #:: sieve(s.tail filter (_ % s.head != 0))
+  val primes = sieve(Stream.from(2))
+  printSome(primes, 10)
 }
