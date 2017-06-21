@@ -10,7 +10,7 @@ object ReaderMonad extends Monad2Companion {
 
   object implicits {
     implicit class ReaderMonadWrapper[E, A](ma: E => A) extends ScalaMonad[A] {
-      override protected type M[A] = MM[E, A]
+      override protected type M[T] = MM[E, T]
 
       def >>=[B](f: A => M[B]): M[B] = { e => f(ma(e))(e) }
 

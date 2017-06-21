@@ -10,7 +10,7 @@ object StateMonad extends Monad2Companion {
 
   object implicits {
     implicit class StateMonadWrapper[S, A](ma: MM[S, A]) extends ScalaMonad[A] {
-      override protected type M[A] = MM[S, A]
+      override protected type M[T] = MM[S, T]
 
       def >>=[B](f: A => M[B]): M[B] = { r =>
         val (a, s) = ma(r)
@@ -33,25 +33,25 @@ object StateMonadTest extends App {
   assert {
     {
       val m: Char => (Int, Char) = StateMonad.`return`(7)
-      m('@') == (7, '@')
+      m('@') == ((7, '@'))
     }
 
     {
       val m = StateMonad.`return`[Char](7)
-      m('@') == (7, '@')
+      m('@') == ((7, '@'))
     }
   }
 
   assert {
     val m0 = { (s: Int) => (s / 2.0, s / 2) }
     val m = m0 >>= { x => (s: Int) => (x + "|" + s, s + 1) }
-    m(7) == ("3.5|3", 4)
+    m(7) == (("3.5|3", 4))
   }
 
   assert {
     val m0 = { (s: Int) => (s / 2.0, s / 2) }
     val m = m0 fmap { _.toString() }
-    m(7) == ("3.5", 3)
+    m(7) == (("3.5", 3))
   }
 
   assert {
@@ -63,7 +63,7 @@ object StateMonadTest extends App {
 
     val m = mma.join()
     val X = 3
-    m(X) == (X + "|" + (X * N), X + X * N)
+    m(X) == ((X + "|" + (X * N), X + X * N))
   }
 
   assert {
@@ -80,7 +80,7 @@ object StateMonadTest extends App {
     val ma = { s: String => (3, s + "|3") }
     val mb = { s: String => (4.0, s + "|4.0") }
     val m = lift(ma, mb)
-    m("!") == (7.0, "!|3|4.0")
+    m("!") == ((7.0, "!|3|4.0"))
   }
 
   {
@@ -98,7 +98,7 @@ object StateMonadTest extends App {
         _     <- push(three + four)
         seven <- pop
       } yield seven
-      m(List(0)) == (7, List(4, 3, 0))
+      m(List(0)) == ((7, List(4, 3, 0)))
     }
   }
 
@@ -110,7 +110,7 @@ object StateMonadTest extends App {
       sN <- StateMonad.get[String]
     } yield (s0, sN)
 
-    m("@") == (("@", "AB"), "AB")
+    m("@") == ((("@", "AB"), "AB"))
   }
 
   println("OK")

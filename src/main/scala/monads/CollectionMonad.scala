@@ -9,7 +9,7 @@ object CollectionMonad extends MonadCompanion {
 
   object implicits {
     implicit class CollectionMonadWrapper[A](ma: M[A]) extends Monad[A] {
-      override protected type M[A] = CollectionMonad.M[A]
+      override protected type M[T] = CollectionMonad.M[T]
 
       def >>=[B](f: A => M[B]): M[B] =
         ma.flatMap(f)

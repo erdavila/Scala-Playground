@@ -7,7 +7,7 @@ object IdentityMonad extends MonadCompanion {
 
   object implicits {
     implicit class IdentityMonadWrapper[A](ma: M[A]) extends ScalaMonad[A] {
-      override protected type M[A] = IdentityMonad.M[A]
+      override protected type M[T] = IdentityMonad.M[T]
 
       def >>=[B](f: A => M[B]): M[B] = f(ma)
 

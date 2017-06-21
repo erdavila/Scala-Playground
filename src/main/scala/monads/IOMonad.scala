@@ -9,7 +9,7 @@ object IOMonad extends MonadCompanion {
 
   object implicits {
     implicit class IOMonadWrapper[A](ma: M[A]) extends ScalaMonad[A] {
-      override protected type M[A] = IOMonad.M[A]
+      override protected type M[T] = IOMonad.M[T]
 
       def >>=[B](f: A => M[B]): M[B] = { () =>
         val a = ma()

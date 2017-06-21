@@ -57,7 +57,7 @@ object Contravariant extends Base[Contravariant] {
   val `producer of Bottom (and Top and Middle)` : Producer[Bottom] = `producer of Middle (and Top)`
 
   class Consumer[-T] {
-    def consume[T](value: T): Unit = ???
+    def consume[U](value: U): Unit = ???
   }
   val `consumer of Middle (and Bottom)`: Consumer[Middle] = ???
   //val `consumer of Top (and Middle and Bottom)`: Consumer[Top] = `consumer of Middle (and Bottom)`  // type mismatch;  found   : variance.Contravariant.Consumer[variance.Middle]  required: variance.Contravariant.Consumer[variance.Top]

@@ -3,9 +3,9 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 object ImplicitChaining extends App {
-  implicits
+  implicits()
   println()
-  explicits
+  explicits()
 
   case class A(x: Int)
   case class B(x: Int, y: Int)
@@ -13,7 +13,7 @@ object ImplicitChaining extends App {
     def total = x + y + z
   }
 
-  def implicits: Unit = {
+  def implicits(): Unit = {
     println("With implicits:")
 
     implicit def intToA(n: Int): A = Trace("intToA", n) {
@@ -35,7 +35,7 @@ object ImplicitChaining extends App {
     println(C(1, 2, 3).total)
   }
 
-  def explicits: Unit = {
+  def explicits(): Unit = {
     println("Without implicits:")
 
     def intToA(n: Int): A = Trace("intToA", n) {
@@ -90,7 +90,7 @@ object ImplicitChaining extends App {
       enabled.push(false)
       f(param)
       enabled.pop()
-      println("f is " + lastCalled.getOrElse("? (probably Predef.$conforms)"))
+      println("f is " + lastCalled.getOrElse("? (probably Predef.$"+"conforms)"))
     }
 
     private def indented[R](func: => R): R = {

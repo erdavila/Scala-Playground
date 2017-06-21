@@ -12,7 +12,7 @@ object ContinuationMonad extends Monad2Companion {
 
   object implicits {
     implicit class ContinuationMonadWrapper[R, A](ma: MM[R, A]) extends ScalaMonad[A] {
-      override protected type M[A] = MM[R, A]
+      override protected type M[T] = MM[R, T]
 
       def >>=[B](f: A => M[B]): M[B] = { k => ma(a => f(a)(k)) }
 

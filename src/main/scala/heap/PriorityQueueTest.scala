@@ -1,7 +1,6 @@
 package heap
 
 import PriorityQueue._
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object PriorityQueueTest extends App {

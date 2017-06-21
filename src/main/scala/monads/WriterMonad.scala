@@ -15,7 +15,7 @@ object WriterMonad extends Monad2Companion {
 
   object implicits {
     implicit class WriterMonadWrapper[W, A](ma: MM[W, A]) extends ScalaMonad[A] {
-      override protected type M[A] = MM[W, A]
+      override protected type M[T] = MM[W, T]
 
       def >>=[B](f: A => M[B])(implicit monoid: Monoid[W]): M[B] = {
         val (wa, a) = ma
@@ -42,42 +42,42 @@ object WriterMonadTest extends App {
   assert {
     {
       val m: (String, Int) = WriterMonad.`return`(7)
-      m == ("", 7)
+      m == (("", 7))
     }
 
     {
       val m = WriterMonad.`return`[String](7)
-      m == ("", 7)
+      m == (("", 7))
     }
   }
 
   assert {
     val m = ("BEGIN", 7) >>= { x => ("half", x / 2.0) }
-    m == ("BEGIN|half", 3.5)
+    m == (("BEGIN|half", 3.5))
   }
 
   assert {
     val m = ("BEGIN", 7) fmap { x => x / 2.0 }
-    m == ("BEGIN", 3.5)
+    m == (("BEGIN", 3.5))
   }
 
   assert {
     val m = ("out", ("in", 7)).join()
-    m == ("out|in", 7)
+    m == (("out|in", 7))
   }
 
   assert {
     val plus4 = { x: Int => ("plus4", x + 4L) }
     val half = { x: Long => ("half", x / 2.0) }
     val h = plus4 >=> half
-    h(3) == ("plus4|half", 3.5)
+    h(3) == (("plus4|half", 3.5))
   }
 
   assert {
     val lift = WriterMonad.liftM2 { (x: Int, y: Long) => x / y.toDouble }
     val mx = ("x", 7)
     val my = ("y", 2L)
-    lift(mx, my) == ("x|y", 3.5)
+    lift(mx, my) == (("x|y", 3.5))
   }
 
   assert {
@@ -85,7 +85,7 @@ object WriterMonadTest extends App {
       x <- ("x", 7)
       y <- ("y", 2L)
     } yield x / y.toDouble
-    m == ("x|y", 3.5)
+    m == (("x|y", 3.5))
   }
 
   println("OK")

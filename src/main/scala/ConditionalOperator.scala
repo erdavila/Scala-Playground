@@ -89,6 +89,7 @@ object ConditionalOperatorTest extends App {
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Int
     val r: R = fbw.::[R](opt)                                // R = Int >: Int = F
     val rr: R = opt.getOrElse[R](f)                          // R = Int >: Int = T
+    (r, rr)
   }
 
   // <>
@@ -103,6 +104,7 @@ object ConditionalOperatorTest extends App {
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Derived2
     val r: R = fbw.::[R](opt)                                // R = Base >: Derived2 = F
     val rr: R = opt.getOrElse[R](f)                          // R = Base >: Derived1 = T
+    (r, rr)
   }
 
   // >
@@ -117,6 +119,7 @@ object ConditionalOperatorTest extends App {
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Child
     val r: R = fbw.::[R](opt)                                // R = Parent >: Child = F
     val rr: R = opt.getOrElse[R](f)                          // R = Parent >: Parent = T
+    (r, rr)
   }
 
   // <
@@ -131,6 +134,7 @@ object ConditionalOperatorTest extends App {
     val fbw: FalseBlockWrapper[F] = FalseBlockWrapper[F](f)  // F = Parent
     val r: R = fbw.::[R](opt)                                // R = Parent >: Parent = F
     val rr: R = opt.getOrElse[R](f)                          // R = Parent >: Child = T
+    (r, rr)
   }
 
   println("OK!")

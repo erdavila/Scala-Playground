@@ -14,7 +14,7 @@ object MaybeMonad extends MonadCompanion {
     val Nothing = None
 
     implicit class MaybeMonadWrapper[A](ma: M[A]) extends Monad[A] {
-      override protected type M[A] = MaybeMonad.M[A]
+      override protected type M[T] = MaybeMonad.M[T]
 
       def >>=[B](f: A => M[B]): M[B] = ma match {
         case Just(a) => f(a)
