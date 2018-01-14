@@ -1,65 +1,73 @@
-package variance
+package variance2
 
 class Covariant[+T] {
-  //def expectsExact(a: T): Unit = ???  // covariant type T occurs in contravariant position in type T of value a
-  def expectsUpper[U >: T](a: U): Unit = ???
-  //def expectsLower[U <: T](a: U): Unit = ???  // covariant type T occurs in contravariant position in type  <: T of type U
+  def get(): T = ???
 
-  def returnsExact(): T = ???
-  def returnsUpper[U >: T](): U = ???
-  //def returnsLower[U <: T](): U = ???  // covariant type T occurs in contravariant position in type  <: T of type U
+  //def getInvariant(): Invariant[T] = ???
+  def getInvariantUpper[U >: T](): Invariant[U] = ???
+
+  def getCovariant(): Covariant[T] = ???
+
+  //def getContravariant(): Contravariant[T] = ???
+  def getContravariantUpper[U >: T](): Contravariant[U] = ???
+
+  //def set(value: T): Unit = ???
+  def setUpper[U >: T](value: U): Unit = ???
+
+  //def setInvariant(value: Invariant[T]): Unit = ???
+  def setInvariantUpper[U >: T](value: Invariant[U]): Unit = ???
+
+  //def setCovariant(value: Covariant[T]): Unit = ???
+  def setCovariantUpper[U >: T](value: Covariant[U]): Unit = ???
+
+  def setContravariant(value: Contravariant[T]): Unit = ???
 }
 
-object Covariant extends Base[Covariant] {
-  //expectsOfMiddle(ofTop)  // type mismatch;  found   : variance.Covariant[variance.Top]  required: variance.Covariant[variance.Middle]
-  expectsOfMiddle(ofMiddle)
-  expectsOfMiddle(ofBottom)
+object CovariantTest extends Values {
+  val covariant = new Covariant[Something]
 
-  expectsOfTop(ofMiddle)
-  expectsOfMiddle(ofMiddle)
-  //expectsOfBottom(ofMiddle)  // type mismatch;  found   : variance.Covariant[variance.Middle]  required: variance.Covariant[variance.Bottom]
+  covariant.get() : Any
+  covariant.get() : Something
+  //covariant.get() : Nothing
+  //covariant.get() : Unrelated
 
-  /*
-  ofMiddle.expectsExact(top)
-  ofMiddle.expectsExact(middle)
-  ofMiddle.expectsExact(bottom)
-  */
+  covariant.getInvariantUpper() : Invariant[Any]
+  covariant.getInvariantUpper() : Invariant[Something]
+  //covariant.getInvariantUpper() : Invariant[Nothing]
+  //covariant.getInvariantUpper() : Invariant[Unrelated]
 
-  ofMiddle.expectsUpper(top)
-  ofMiddle.expectsUpper(middle)
-  ofMiddle.expectsUpper(bottom)
+  covariant.getCovariant() : Covariant[Any]
+  covariant.getCovariant() : Covariant[Something]
+  //covariant.getCovariant() : Covariant[Nothing]
+  //covariant.getCovariant() : Covariant[Unrelated]
 
-  /*
-  ofMiddle.expectsLower(top)
-  ofMiddle.expectsLower(middle)
-  ofMiddle.expectsLower(bottom)
-  */
+  covariant.getContravariantUpper() : Contravariant[Any]
+  covariant.getContravariantUpper() : Contravariant[Something]
+  covariant.getContravariantUpper() : Contravariant[Nothing]
+  covariant.getContravariantUpper() : Contravariant[Unrelated]
 
-  expectsTop(ofMiddle.returnsExact())
-  expectsMiddle(ofMiddle.returnsExact())
-  //expectsBottom(ofMiddle.returnsExact())  // type mismatch;  found   : variance.Middle  required: variance.Bottom
+  covariant.setUpper(any)
+  covariant.setUpper(something)
+  covariant.setUpper(nothing)
+  covariant.setUpper(unrelated)
 
-  expectsTop(ofMiddle.returnsUpper())
-  expectsMiddle(ofMiddle.returnsUpper())
-  //expectsBottom(ofMiddle.returnsUpper())  // type mismatch;  found   : variance.Middle  required: variance.Bottom
+  covariant.setInvariantUpper(new Invariant[Any])
+  covariant.setInvariantUpper(new Invariant[Something])
+  //covariant.setInvariantUpper(new Invariant[Nothing])
+  //covariant.setInvariantUpper(new Invariant[Unrelated])
 
-  /*
-  expectsTop(ofMiddle.returnsLower())
-  expectsMiddle(ofMiddle.returnsLower())
-  expectsBottom(ofMiddle.returnsLower())
-  */
+  covariant.setCovariantUpper(new Covariant[Any])
+  covariant.setCovariantUpper(new Covariant[Something])
+  covariant.setCovariantUpper(new Covariant[Nothing])
+  covariant.setCovariantUpper(new Covariant[Unrelated])
 
-  class Producer[+T] {
-    def produce(): T = ???
-  }
-  val `producer of Middle (and Bottom)` : Producer[Middle] = ???
-  val `producer of Top (and Middle and Bottom)`: Producer[Top] = `producer of Middle (and Bottom)`
-  //val `producer of Bottom` : Producer[Bottom] = `producer of Middle (and Bottom)`  // type mismatch;  found   : variance.Covariant.Producer[variance.Middle]  required: variance.Covariant.Producer[variance.Bottom]
+  covariant.setContravariant(new Contravariant[Any])
+  covariant.setContravariant(new Contravariant[Something])
+  //covariant.setContravariant(new Contravariant[Nothing])
+  //covariant.setContravariant(new Contravariant[Unrelated])
 
-  class Consumer[+T] {
-    def consume[U >: T](value: U): Unit = ???
-  }
-  val `consumer of Middle (and Top)`: Consumer[Middle] = ???
-  val `consumer of Top`: Consumer[Top] = `consumer of Middle (and Top)`
-  //val `consumer of Bottom (and Top and Middle)`: Consumer[Bottom] = `consumer of Middle (and Top)`  //  type mismatch;  found   : variance.Covariant.Consumer[variance.Middle]  required: variance.Covariant.Consumer[variance.Bottom]
+  //new Covariant[Any]       : Covariant[Something]
+  new Covariant[Something] : Covariant[Something]
+  new Covariant[Nothing]   : Covariant[Something]
+  //new Covariant[Unrelated] : Covariant[Something]
 }

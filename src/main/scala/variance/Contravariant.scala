@@ -1,65 +1,75 @@
-package variance
+package variance2
+
+import scala.reflect.runtime.universe.TypeTag
 
 class Contravariant[-T] {
-  def expectsExact(a: T): Unit = ???
-  //def expectsUpper[U >: T](a: U): Unit = ???  // contravariant type T occurs in covariant position in type  >: T of type U
-  def expectsLower[U <: T](a: U): Unit = ???
+  //def get(): T = ???
+  def getLower[U <: T](): U = ???
 
-  //def returnsExact(): T = ???  // contravariant type T occurs in covariant position in type ()T of method returnsExact
-  //def returnsUpper[U >: T](): U = ???  // contravariant type T occurs in covariant position in type  >: T of type U
-  def returnsLower[U <: T](): U = ???
+  //def getInvariant(): Invariant[T] = ???
+  def getInvariantLower[U <: T](): Invariant[U] = ???
+
+  //def getCovariant(): Covariant[T] = ???
+  def getCovariantLower[U <: T](): Covariant[U] = ???
+
+  def getContravariant(): Contravariant[T] = ???
+
+  def set(value: T): Unit = ???
+
+  //def setInvariant(value: Invariant[T]): Unit = ???
+  def setInvariantLower[U <: T](value: Invariant[U]): Unit = ???
+
+  def setCovariant(value: Covariant[T]): Unit = ???
+
+  //def setContravariant(value: Contravariant[T]): Unit = ???
+  def setContravariantLower[U <: T](value: Contravariant[U]): Unit = ???
 }
 
-object Contravariant extends Base[Contravariant] {
-  expectsOfMiddle(ofTop)
-  expectsOfMiddle(ofMiddle)
-  //expectsOfMiddle(ofBottom)  // type mismatch;  found   : variance.Contravariant[variance.Bottom]  required: variance.Contravariant[variance.Middle]
+object ContravariantTest extends Values {
+  val contravariant = new Contravariant[Something]
 
-  //expectsOfTop(ofMiddle)  // type mismatch;  found   : variance.Contravariant[variance.Middle]  required: variance.Contravariant[variance.Top]
-  expectsOfMiddle(ofMiddle)
-  expectsOfBottom(ofMiddle)
+  contravariant.getLower() : Any
+  contravariant.getLower() : Something
+  contravariant.getLower() : Nothing
+  contravariant.getLower() : Unrelated
 
-  //ofMiddle.expectsExact(top)  // type mismatch;  found   : variance.Top  required: variance.Middle
-  ofMiddle.expectsExact(middle)
-  ofMiddle.expectsExact(bottom)
+  //contravariant.getInvariantLower() : Invariant[Any]
+  contravariant.getInvariantLower() : Invariant[Something]
+  contravariant.getInvariantLower() : Invariant[Nothing]
+  //contravariant.getInvariantLower() : Invariant[Unrelated]
 
-  /*
-  ofMiddle.expectsUpper(top)
-  ofMiddle.expectsUpper(middle)
-  ofMiddle.expectsUpper(bottom)
-  */
+  contravariant.getCovariantLower() : Covariant[Any]
+  contravariant.getCovariantLower() : Covariant[Something]
+  contravariant.getCovariantLower() : Covariant[Nothing]
+  contravariant.getCovariantLower() : Covariant[Unrelated]
 
-  //ofMiddle.expectsLower(top)  // inferred type arguments [variance.Top] do not conform to method expectsLower's type parameter bounds [U <: variance.Middle]
-  ofMiddle.expectsLower(middle)
-  ofMiddle.expectsLower(bottom)
+  //contravariant.getContravariant() : Contravariant[Any]
+  contravariant.getContravariant() : Contravariant[Something]
+  contravariant.getContravariant() : Contravariant[Nothing]
+  //contravariant.getContravariant() : Contravariant[Unrelated]
 
-  /*
-  expectsTop(ofMiddle.returnsExact())
-  expectsMiddle(ofMiddle.returnsExact())
-  expectsBottom(ofMiddle.returnsExact())
-  */
+  //contravariant.set(any)
+  contravariant.set(something)
+  contravariant.set(nothing)
+  //contravariant.set(unrelated)
 
-  /*
-  expectsTop(ofMiddle.returnsUpper())
-  expectsMiddle(ofMiddle.returnsUpper())
-  expectsBottom(ofMiddle.returnsUpper())
-  */
+  //contravariant.setInvariantLower(new Invariant[Any])
+  contravariant.setInvariantLower(new Invariant[Something])
+  contravariant.setInvariantLower(new Invariant[Nothing])
+  //contravariant.setInvariantLower(new Invariant[Unrelated])
 
-  expectsTop(ofMiddle.returnsLower())
-  expectsMiddle(ofMiddle.returnsLower())
-  expectsBottom(ofMiddle.returnsLower())
+  //contravariant.setCovariant(new Covariant[Any])
+  contravariant.setCovariant(new Covariant[Something])
+  contravariant.setCovariant(new Covariant[Nothing])
+  //contravariant.setCovariant(new Covariant[Unrelated])
 
-  class Producer[-T] {
-    def produce[U <: T](): U = ???
-  }
-  val `producer of Middle (and Top)` : Producer[Middle] = ???
-  //val `producer of Top`: Producer[Top] = `producer of Middle (and Top)`  // type mismatch;  found   : variance.Contravariant.Producer[variance.Middle]  required: variance.Contravariant.Producer[variance.Top]
-  val `producer of Bottom (and Top and Middle)` : Producer[Bottom] = `producer of Middle (and Top)`
+  contravariant.setContravariantLower(new Contravariant[Any])
+  contravariant.setContravariantLower(new Contravariant[Something])
+  contravariant.setContravariantLower(new Contravariant[Nothing])
+  contravariant.setContravariantLower(new Contravariant[Unrelated])
 
-  class Consumer[-T] {
-    def consume[U](value: U): Unit = ???
-  }
-  val `consumer of Middle (and Bottom)`: Consumer[Middle] = ???
-  //val `consumer of Top (and Middle and Bottom)`: Consumer[Top] = `consumer of Middle (and Bottom)`  // type mismatch;  found   : variance.Contravariant.Consumer[variance.Middle]  required: variance.Contravariant.Consumer[variance.Top]
-  val `consumer of Bottom`: Consumer[Bottom] = `consumer of Middle (and Bottom)`
+  new Contravariant[Any]       : Contravariant[Something]
+  new Contravariant[Something] : Contravariant[Something]
+  //new Contravariant[Nothing]   : Contravariant[Something]
+  //new Contravariant[Unrelated] : Contravariant[Something]
 }

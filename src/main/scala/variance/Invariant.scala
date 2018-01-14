@@ -1,45 +1,68 @@
-package variance
+package variance2
 
 class Invariant[T] {
-  def expectsExact(a: T): Unit = ???
-  def expectsUpper[U >: T](a: U): Unit = ???
-  def expectsLower[U <: T](a: U): Unit = ???
+  def get(): T = ???
 
-  def returnsExact(): T = ???
-  def returnsUpper[U >: T](): U = ???
-  def returnsLower[U <: T](): U = ???
+  def getInvariant(): Invariant[T] = ???
+
+  def getCovariant(): Covariant[T] = ???
+
+  def getContravariant(): Contravariant[T] = ???
+
+  def set(value: T): Unit = ???
+
+  def setInvariant(value: Invariant[T]): Unit = ???
+
+  def setCovariant(value: Covariant[T]): Unit = ???
+
+  def setContravariant(value: Contravariant[T]): Unit = ???
 }
 
-object Invariant extends Base[Invariant] {
-  //expectsOfMiddle(ofTop)  // type mismatch;  found   : variance.Invariant[variance.Top]  required: variance.Invariant[variance.Middle] Note: variance.Top >: variance.Middle, but class Invariant is invariant in type T. You may wish to define T as -T instead. (SLS 4.5)
-  expectsOfMiddle(ofMiddle)
-  //expectsOfMiddle(ofBottom)  // type mismatch;  found   : variance.Invariant[variance.Bottom]  required: variance.Invariant[variance.Middle] Note: variance.Bottom <: variance.Middle, but class Invariant is invariant in type T. You may wish to define T as +T instead. (SLS 4.5)
+object InvariantTest extends Values {
+  val invariant = new Invariant[Something]
 
-  //expectsOfTop(ofMiddle)  // type mismatch;  found   : variance.Invariant[variance.Middle]  required: variance.Invariant[variance.Top] Note: variance.Middle <: variance.Top, but class Invariant is invariant in type T. You may wish to define T as +T instead. (SLS 4.5)
-  expectsOfMiddle(ofMiddle)
-  //expectsOfBottom(ofMiddle)  // type mismatch;  found   : variance.Invariant[variance.Middle]  required: variance.Invariant[variance.Bottom] Note: variance.Middle >: variance.Bottom, but class Invariant is invariant in type T. You may wish to define T as -T instead. (SLS 4.5)
+  invariant.get() : Any
+  invariant.get() : Something
+  //invariant.get() : Nothing
+  //invariant.get() : Unrelated
 
-  //ofMiddle.expectsExact(top)  // type mismatch;  found   : variance.Top  required: variance.Middle
-  ofMiddle.expectsExact(middle)
-  ofMiddle.expectsExact(bottom)
+  //invariant.getInvariant() : Invariant[Any]
+  invariant.getInvariant() : Invariant[Something]
+  //invariant.getInvariant() : Invariant[Nothing]
+  //invariant.getInvariant() : Invariant[Unrelated]
 
-  ofMiddle.expectsUpper(top)
-  ofMiddle.expectsUpper(middle)
-  ofMiddle.expectsUpper(bottom)
+  invariant.getCovariant() : Covariant[Any]
+  invariant.getCovariant() : Covariant[Something]
+  //invariant.getCovariant() : Covariant[Nothing]
+  //invariant.getCovariant() : Covariant[Unrelated]
 
-  //ofMiddle.expectsLower(top)  // inferred type arguments [variance.Top] do not conform to method expectsLower's type parameter bounds [U <: variance.Middle]
-  ofMiddle.expectsLower(middle)
-  ofMiddle.expectsLower(bottom)
+  //invariant.getContravariant() : Contravariant[Any]
+  invariant.getContravariant() : Contravariant[Something]
+  invariant.getContravariant() : Contravariant[Nothing]
+  //invariant.getContravariant() : Contravariant[Unrelated]
 
-  expectsTop(ofMiddle.returnsExact())
-  expectsMiddle(ofMiddle.returnsExact())
-  //expectsBottom(ofMiddle.returnsExact())  // type mismatch;  found   : variance.Middle  required: variance.Bottom
+  //invariant.set(any)
+  invariant.set(something)
+  invariant.set(nothing)
+  //invariant.set(unrelated)
 
-  expectsTop(ofMiddle.returnsUpper())
-  expectsMiddle(ofMiddle.returnsUpper())
-  //expectsBottom(ofMiddle.returnsUpper())  // type mismatch;  found   : variance.Middle  required: variance.Bottom
+  //invariant.setInvariant(new Invariant[Any])
+  invariant.setInvariant(new Invariant[Something])
+  //invariant.setInvariant(new Invariant[Nothing])
+  //invariant.setInvariant(new Invariant[Unrelated])
 
-  expectsTop(ofMiddle.returnsLower())
-  expectsMiddle(ofMiddle.returnsLower())
-  expectsBottom(ofMiddle.returnsLower())
+  //invariant.setCovariant(new Covariant[Any])
+  invariant.setCovariant(new Covariant[Something])
+  invariant.setCovariant(new Covariant[Nothing])
+  //invariant.setCovariant(new Covariant[Unrelated])
+
+  invariant.setContravariant(new Contravariant[Any])
+  invariant.setContravariant(new Contravariant[Something])
+  //invariant.setContravariant(new Contravariant[Nothing])
+  //invariant.setContravariant(new Contravariant[Unrelated])
+
+  //new Invariant[Any]       : Invariant[Something]
+  new Invariant[Something] : Invariant[Something]
+  //new Invariant[Nothing]   : Invariant[Something]
+  //new Invariant[Unrelated] : Invariant[Something]
 }
