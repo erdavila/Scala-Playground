@@ -12,4 +12,8 @@ lazy val macros = (project in file("macros")).settings(
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
 )
 
-lazy val root = (project in file(".")) dependsOn macros
+lazy val root = (project in file("."))
+  .settings(
+    libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.3"
+  )
+  .dependsOn(macros)
