@@ -35,19 +35,7 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
     require(numTokens >= 1)
 
     val newNode = new Node[K, V](hashFunction)
-    val newTokens = generateTokens(numTokens)
-    val ringAfter = ring ++ newTokens.map { _ -> newNode }
-
-    if (ring.nonEmpty) {
-      for (newToken <- newTokens) {
-        val rangeBegin = ringAfter.keySet.circular.before(newToken)
-        val rangeEnd = newToken
-        val assignedNodeBefore = nodeForHash(newToken)
-        moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, newNode)
-      }
-    }
-
-    ring = ringAfter
+    addTokens(newNode, numTokens)
 
     newNode
   }
@@ -75,9 +63,43 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
       require(collected.nonEmpty, "node not present in the ring")
       collected.toSet
     }
-    val ringAfter = ring -- nodeTokens
 
-    for (token <- nodeTokens) {
+    removeTokens(node, nodeTokens)
+  }
+
+  def setNumTokens(node: Node[K, V], newNumTokens: Int): Unit = {
+    require(newNumTokens >= 1)
+
+    val tokens = ring.collect { case (token, `node`) => token }
+
+    if (newNumTokens > tokens.size) {
+      addTokens(node, newNumTokens - tokens.size)
+    } else if (newNumTokens < tokens.size) {
+      val tokensToRemove = random.shuffle(tokens).take(tokens.size - newNumTokens)
+      removeTokens(node, tokensToRemove.toSet)
+    }
+  }
+
+  private def addTokens(node: Node[K, V], numNewTokens: Int): Unit = {
+    val newTokens = generateTokens(numNewTokens)
+    val ringAfter = ring ++ newTokens.map { _ -> node }
+
+    if (ring.nonEmpty) {
+      for (newToken <- newTokens) {
+        val rangeBegin = ringAfter.keySet.circular.before(newToken)
+        val rangeEnd = newToken
+        val assignedNodeBefore = nodeForHash(newToken)
+        moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, node)
+      }
+    }
+
+    ring = ringAfter
+  }
+
+  private def removeTokens(node: Node[K, V], tokens: Set[Token]): Unit = {
+    val ringAfter = ring -- tokens
+
+    for (token <- tokens) {
       val rangeBegin = ring.keySet.circular.before(token)
       val rangeEnd = token
       val assignedNodeAfter = nodeForHash(token, ring = ringAfter)

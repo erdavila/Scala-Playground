@@ -7,6 +7,8 @@ import scala.util.Random
 
 class Test(random: Random) {
 
+  private val NumberOfTokensToChoose = Set(20, 30, 40)
+
   private val coordinator = new Coordinator[String, String](_.hashCode, random)
   private val numberOfTokens = mutable.Map.empty[Node[String, String], Int]
   private val entries = mutable.Map.empty[String, String]
@@ -19,6 +21,7 @@ class Test(random: Random) {
     populateEntries().andCheck()
 
     removeNodes().andCheck()
+    changeNumberOfTokens().andCheck()
     populateEntries().andCheck()
 
     showStats()
@@ -26,7 +29,7 @@ class Test(random: Random) {
 
   private def addNodes(): Unit =
     for (_ <- 1 to 10) {
-      val numTokens = chooseOne(Seq(20, 30, 40))
+      val numTokens = chooseOne(NumberOfTokensToChoose)
       val node = coordinator.addNode(numTokens)
       numberOfTokens.put(node, numTokens)
     }
@@ -56,6 +59,12 @@ class Test(random: Random) {
     for (node <- choose(5)(numberOfTokens.keys)) {
       coordinator.removeNode(node)
       numberOfTokens.remove(node)
+    }
+
+  private def changeNumberOfTokens(): Unit =
+    for (node <- choose(10)(numberOfTokens.keys)) {
+      val newNumTokens = chooseOne(NumberOfTokensToChoose)
+      coordinator.setNumTokens(node, newNumTokens)
     }
 
   private def choose[A](count: Int)(candidates: Iterable[A]): Iterable[A] =
