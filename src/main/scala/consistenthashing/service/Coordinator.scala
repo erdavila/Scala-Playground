@@ -31,16 +31,20 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
     (hash, node)
   }
 
-  def addNode(): Node[K, V] = {
+  def addNode(numTokens: Int): Node[K, V] = {
+    require(numTokens >= 1)
+
     val newNode = new Node[K, V](hashFunction)
-    val newToken = generateToken()
-    val ringAfter = ring + (newToken -> newNode)
+    val newTokens = generateTokens(numTokens)
+    val ringAfter = ring ++ newTokens.map { _ -> newNode }
 
     if (ring.nonEmpty) {
-      val rangeBegin = ringAfter.keySet.circular.before(newToken)
-      val rangeEnd = newToken
-      val assignedNodeBefore = nodeForHash(newToken)
-      moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, newNode)
+      for (newToken <- newTokens) {
+        val rangeBegin = ringAfter.keySet.circular.before(newToken)
+        val rangeEnd = newToken
+        val assignedNodeBefore = nodeForHash(newToken)
+        moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, newNode)
+      }
     }
 
     ring = ringAfter
@@ -48,28 +52,37 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
     newNode
   }
 
-  @tailrec
-  private def generateToken(): Token = {
-    val newToken = Token.generate(random)
-    if (ring contains newToken) {
-      generateToken()
-    } else {
-      newToken
-    }
+  private def generateTokens(numTokens: Int): Set[Token] = {
+    @tailrec
+    def loop(newTokens: Set[Token]): Set[Token] =
+      if (newTokens.size < numTokens) {
+        val newToken = Token.generate(random)
+        if (ring contains newToken) {
+          loop(newTokens)
+        } else {
+          loop(newTokens + newToken)
+        }
+      } else {
+        newTokens
+      }
+
+    loop(Set.empty)
   }
 
   def removeNode(node: Node[K, V]): Unit = {
-    val nodeToken = {
-      val collected = ring.collectFirst { case (token, `node`) => token }
-      require(collected.isDefined, "node not present in the ring")
-      collected.head
+    val nodeTokens = {
+      val collected = ring.collect { case (token, `node`) => token }
+      require(collected.nonEmpty, "node not present in the ring")
+      collected.toSet
     }
-    val ringAfter = ring - nodeToken
+    val ringAfter = ring -- nodeTokens
 
-    val rangeBegin = ring.keySet.circular.before(nodeToken)
-    val rangeEnd = nodeToken
-    val assignedNodeAfter = nodeForHash(nodeToken, ring = ringAfter)
-    moveRangeData(rangeBegin, rangeEnd)(node, assignedNodeAfter)
+    for (token <- nodeTokens) {
+      val rangeBegin = ring.keySet.circular.before(token)
+      val rangeEnd = token
+      val assignedNodeAfter = nodeForHash(token, ring = ringAfter)
+      moveRangeData(rangeBegin, rangeEnd)(node, assignedNodeAfter)
+    }
 
     ring = ringAfter
   }
