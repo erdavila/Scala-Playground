@@ -3,44 +3,52 @@ package consistenthashing.service
 import CircularSet.Ops
 import scala.annotation.tailrec
 import scala.collection.SortedMap
+import scala.collection.mutable
 import scala.util.Random
 
-class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
+class Coordinator[K, V](replicationFactor: Int, hashFunction: K => Hash, random: Random = Random) {
 
-  private var ring = SortedMap.empty[Token, Node[K, V]]
+  require(replicationFactor >= 1)
+
+  private case class AssignedNodes(main: Node[K, V], all: Set[Node[K, V]])
+
+  private var ring = SortedMap.empty[Token, AssignedNodes]
 
   def put(key: K, value: V): Unit = {
-    val (hash, node) = hashAndNodeForKey(key)
-    node.put(hash, key, value)
+    val (hash, nodes) = hashAndNodesForKey(key)
+    for (node <- nodes) {
+      node.put(hash, key, value)
+    }
   }
 
   def remove(key: K): Unit = {
-    val (hash, node) = hashAndNodeForKey(key)
-    node.remove(hash, key)
+    val (hash, nodes) = hashAndNodesForKey(key)
+    for (node <- nodes) {
+      node.remove(hash, key)
+    }
   }
 
-  def nodeForKey(key: K): Node[K, V] = {
-    val (_, node) = hashAndNodeForKey(key)
-    node
+  def nodesForKey(key: K): Set[Node[K, V]] = {
+    val (_, nodes) = hashAndNodesForKey(key)
+    nodes
   }
 
-  private def hashAndNodeForKey(key: K): (Hash, Node[K, V]) = {
+  private def hashAndNodesForKey(key: K): (Hash, Set[Node[K, V]]) = {
     require(ring.nonEmpty)
     val hash = hashFunction(key)
-    val node = nodeForHash(hash)
-    (hash, node)
+    val nodes = nodesForHash(hash)
+    (hash, nodes)
   }
 
   def addNode(): Node[K, V] = {
     val newNode = new Node[K, V](hashFunction)
     val newToken = generateToken()
-    val ringAfter = ring + (newToken -> newNode)
+
+    val mainNodesAfter = ring.mapValues(_.main) + (newToken -> newNode)
+    val ringAfter = makeRing(mainNodesAfter)
 
     if (ring.nonEmpty) {
-      val rangeBegin = ringAfter.keySet.circular.before(newToken)
-      val rangeEnd = newToken
-      val assignedNodeBefore = nodeForHash(newToken)
-      moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, newNode)
+      distributeReplicas(ringAfter, ringAfter)
     }
 
     ring = ringAfter
@@ -60,29 +68,59 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
 
   def removeNode(node: Node[K, V]): Unit = {
     val nodeToken = {
-      val collected = ring.collectFirst { case (token, `node`) => token }
+      val collected = ring.collectFirst { case (token, AssignedNodes(`node`, _)) => token }
       require(collected.isDefined, "node not present in the ring")
       collected.head
     }
-    val ringAfter = ring - nodeToken
 
-    val rangeBegin = ring.keySet.circular.before(nodeToken)
-    val rangeEnd = nodeToken
-    val assignedNodeAfter = nodeForHash(nodeToken, ring = ringAfter)
-    moveRangeData(rangeBegin, rangeEnd)(node, assignedNodeAfter)
+    val mainNodesAfter = (ring - nodeToken).mapValues(_.main)
+    val ringAfter = makeRing(mainNodesAfter)
+
+    distributeReplicas(ring, ringAfter)
 
     ring = ringAfter
   }
 
-  private def nodeForHash(hash: Hash, ring: SortedMap[Token, Node[K, V]] = this.ring): Node[K, V] = {
+  private def makeRing(mainNodes: SortedMap[Token, Node[K, V]]): SortedMap[Token, AssignedNodes] =
+    for ((token, mainNode) <- mainNodes)
+    yield {
+      val allAssignedNodes = mutable.Set.empty[Node[K, V]]
+      val tokens = mainNodes.keySet.circular.iteratorAfterOrAt(token)
+      while (allAssignedNodes.size < replicationFactor  &&  tokens.hasNext) {
+        val assignedNodeToken = tokens.next()
+        val assignedNode = mainNodes(assignedNodeToken)
+        allAssignedNodes += assignedNode
+      }
+      token -> AssignedNodes(mainNode, allAssignedNodes.toSet)
+    }
+
+  private def distributeReplicas(iterationRing: SortedMap[Token, AssignedNodes], ringAfter: SortedMap[Token, AssignedNodes]): Unit =
+    for ((token, assignedNodes) <- iterationRing) {
+      val rangeBegin = iterationRing.keySet.circular.before(token)
+      val rangeEnd = token
+      val assignedNodesBefore = nodesForHash(token, ring = ring)
+      val assignedNodesAfter = nodesForHash(token, ring = ringAfter)
+      moveRangeData(rangeBegin, rangeEnd)(assignedNodesBefore, assignedNodesAfter)
+    }
+
+  private def nodesForHash(hash: Hash, ring: SortedMap[Token, AssignedNodes] = this.ring): Set[Node[K, V]] = {
     val token = ring.keySet.circular.afterOrAt(hash)
-    val node = ring(token)
-    node
+    val nodes = ring(token).all
+    nodes
   }
 
-  private def moveRangeData(rangeBegin: Token, rangeEnd: Token)(fromNode: Node[K, V], toNode: Node[K, V]): Unit = {
-    val data = fromNode.getDataRange(rangeBegin, rangeEnd)
-    fromNode.removeHashes(data.keySet)
-    toNode.addData(data)
-  }
+  private def moveRangeData(rangeBegin: Token, rangeEnd: Token)(fromNodes: Set[Node[K, V]], toNodes: Set[Node[K, V]]): Unit =
+    if (fromNodes != toNodes) {
+      val data = fromNodes.head.getDataRange(rangeBegin, rangeEnd)
+
+      val newNodes = toNodes -- fromNodes
+      for (node <- newNodes) {
+        node.addData(data)
+      }
+
+      val unassignedNodes = fromNodes -- toNodes
+      for (node <- unassignedNodes) {
+        node.removeHashes(data.keySet)
+      }
+    }
 }

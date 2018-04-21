@@ -12,6 +12,7 @@ object CircularSet {
   def main(args: Array[String]): Unit = {
     testBefore()
     testAfterOrAt()
+    testInteratorAfterOrAt()
     println("CircularSet OK")
   }
 
@@ -54,6 +55,34 @@ object CircularSet {
       assert(sset.afterOrAt('F') == 'C')
     }
   }
+
+  private def testInteratorAfterOrAt(): Unit = {
+    {
+      val sset = SortedSet[Char]().circular
+
+      assert(sset.iteratorAfterOrAt('B').toSeq == Seq())
+      assert(sset.iteratorAfterOrAt('C').toSeq == Seq())
+      assert(sset.iteratorAfterOrAt('D').toSeq == Seq())
+    }
+
+    {
+      val sset = SortedSet('C').circular
+
+      assert(sset.iteratorAfterOrAt('B').toSeq == Seq('C'))
+      assert(sset.iteratorAfterOrAt('C').toSeq == Seq('C'))
+      assert(sset.iteratorAfterOrAt('D').toSeq == Seq('C'))
+    }
+
+    {
+      val sset = SortedSet('C', 'E').circular
+
+      assert(sset.iteratorAfterOrAt('B').toSeq == Seq('C', 'E'))
+      assert(sset.iteratorAfterOrAt('C').toSeq == Seq('C', 'E'))
+      assert(sset.iteratorAfterOrAt('D').toSeq == Seq('E', 'C'))
+      assert(sset.iteratorAfterOrAt('E').toSeq == Seq('E', 'C'))
+      assert(sset.iteratorAfterOrAt('F').toSeq == Seq('C', 'E'))
+    }
+  }
 }
 
 class CircularSet[A](sset: SortedSet[A]) {
@@ -73,5 +102,11 @@ class CircularSet[A](sset: SortedSet[A]) {
   def afterOrAt(value: A): A = {
     require(sset.nonEmpty)
     sset.from(value).headOption getOrElse sset.head
+  }
+
+  def iteratorAfterOrAt(value: A): Iterator[A] = {
+    val from = sset.from(value).iterator
+    val to = sset.to(value).takeWhile(_ != value).iterator
+    from ++ to
   }
 }
