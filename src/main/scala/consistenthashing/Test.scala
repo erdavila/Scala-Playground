@@ -7,9 +7,8 @@ import scala.util.Random
 
 class Test(random: Random) {
 
-  private val ReplicationFactor = 3
-
-  private val coordinator = new Coordinator[String, String](ReplicationFactor, _.hashCode, random)
+  private var replicationFactor = 3
+  private val coordinator = new Coordinator[String, String](replicationFactor, _.hashCode, random)
   private val nodes = mutable.Set.empty[Node[String, String]]
   private val entries = mutable.Map.empty[String, String]
 
@@ -27,9 +26,9 @@ class Test(random: Random) {
     populateEntries().andCheck()
 
     removeNodes().andCheck()
+    changeReplicationFactor().andCheck()
     populateEntries().andCheck()
 
-    removeNodes(nodes.size - 4).andCheck()
     removeNodes(nodes.size - 3).andCheck()
     removeNodes(nodes.size - 2).andCheck()
     removeNodes(nodes.size - 1).andCheck()
@@ -59,6 +58,12 @@ class Test(random: Random) {
   private def randomString(): String =
     Seq.fill(10)(random.nextPrintableChar()).mkString
 
+  private def changeReplicationFactor(): Unit = {
+    val newReplicationFactor = 2
+    coordinator.setReplicationFactor(newReplicationFactor)
+    replicationFactor = newReplicationFactor
+  }
+
   private def removeNodes(numNodes: Int = 5): Unit =
     for (node <- choose(numNodes)(nodes)) {
       coordinator.removeNode(node)
@@ -72,7 +77,7 @@ class Test(random: Random) {
     def andCheck(): Unit = {
       f
 
-      val effectiveReplicationFactor = nodes.size min ReplicationFactor
+      val effectiveReplicationFactor = nodes.size min replicationFactor
 
       val totalEntries = nodes.toSeq.map(_.entriesCount).sum
       assert(totalEntries == entries.size * effectiveReplicationFactor)

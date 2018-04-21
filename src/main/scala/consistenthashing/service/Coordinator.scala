@@ -6,7 +6,7 @@ import scala.collection.SortedMap
 import scala.collection.mutable
 import scala.util.Random
 
-class Coordinator[K, V](replicationFactor: Int, hashFunction: K => Hash, random: Random = Random) {
+class Coordinator[K, V](private var replicationFactor: Int, hashFunction: K => Hash, random: Random = Random) {
 
   require(replicationFactor >= 1)
 
@@ -81,7 +81,21 @@ class Coordinator[K, V](replicationFactor: Int, hashFunction: K => Hash, random:
     ring = ringAfter
   }
 
-  private def makeRing(mainNodes: SortedMap[Token, Node[K, V]]): SortedMap[Token, AssignedNodes] =
+  def setReplicationFactor(newReplicationFactor: Int): Unit = {
+    require(newReplicationFactor >= 1)
+
+    if (newReplicationFactor != replicationFactor) {
+      val mainNodes = ring.mapValues(_.main)
+      val ringAfter = makeRing(mainNodes, newReplicationFactor)
+
+      distributeReplicas(ring, ringAfter)
+
+      replicationFactor = newReplicationFactor
+      ring = ringAfter
+    }
+  }
+
+  private def makeRing(mainNodes: SortedMap[Token, Node[K, V]], replicationFactor: Int = this.replicationFactor): SortedMap[Token, AssignedNodes] =
     for ((token, mainNode) <- mainNodes)
     yield {
       val allAssignedNodes = mutable.Set.empty[Node[K, V]]
