@@ -31,45 +31,80 @@ class Coordinator[K, V](hashFunction: K => Hash, random: Random = Random) {
     (hash, node)
   }
 
-  def addNode(): Node[K, V] = {
+  def addNode(numTokens: Int): Node[K, V] = {
+    require(numTokens >= 1)
+
     val newNode = new Node[K, V](hashFunction)
-    val newToken = generateToken()
-    val ringAfter = ring + (newToken -> newNode)
-
-    if (ring.nonEmpty) {
-      val rangeBegin = ringAfter.keySet.circular.before(newToken)
-      val rangeEnd = newToken
-      val assignedNodeBefore = nodeForHash(newToken)
-      moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, newNode)
-    }
-
-    ring = ringAfter
+    addTokens(newNode, numTokens)
 
     newNode
   }
 
-  @tailrec
-  private def generateToken(): Token = {
-    val newToken = Token.generate(random)
-    if (ring contains newToken) {
-      generateToken()
-    } else {
-      newToken
-    }
+  private def generateTokens(numTokens: Int): Set[Token] = {
+    @tailrec
+    def loop(newTokens: Set[Token]): Set[Token] =
+      if (newTokens.size < numTokens) {
+        val newToken = Token.generate(random)
+        if (ring contains newToken) {
+          loop(newTokens)
+        } else {
+          loop(newTokens + newToken)
+        }
+      } else {
+        newTokens
+      }
+
+    loop(Set.empty)
   }
 
   def removeNode(node: Node[K, V]): Unit = {
-    val nodeToken = {
-      val collected = ring.collectFirst { case (token, `node`) => token }
-      require(collected.isDefined, "node not present in the ring")
-      collected.head
+    val nodeTokens = {
+      val collected = ring.collect { case (token, `node`) => token }
+      require(collected.nonEmpty, "node not present in the ring")
+      collected.toSet
     }
-    val ringAfter = ring - nodeToken
 
-    val rangeBegin = ring.keySet.circular.before(nodeToken)
-    val rangeEnd = nodeToken
-    val assignedNodeAfter = nodeForHash(nodeToken, ring = ringAfter)
-    moveRangeData(rangeBegin, rangeEnd)(node, assignedNodeAfter)
+    removeTokens(node, nodeTokens)
+  }
+
+  def setNumTokens(node: Node[K, V], newNumTokens: Int): Unit = {
+    require(newNumTokens >= 1)
+
+    val tokens = ring.collect { case (token, `node`) => token }
+
+    if (newNumTokens > tokens.size) {
+      addTokens(node, newNumTokens - tokens.size)
+    } else if (newNumTokens < tokens.size) {
+      val tokensToRemove = random.shuffle(tokens).take(tokens.size - newNumTokens)
+      removeTokens(node, tokensToRemove.toSet)
+    }
+  }
+
+  private def addTokens(node: Node[K, V], numNewTokens: Int): Unit = {
+    val newTokens = generateTokens(numNewTokens)
+    val ringAfter = ring ++ newTokens.map { _ -> node }
+
+    if (ring.nonEmpty) {
+      for (newToken <- newTokens) {
+        val rangeBegin = ringAfter.keySet.circular.before(newToken)
+        val rangeEnd = newToken
+        val assignedNodeBefore = nodeForHash(newToken)
+        moveRangeData(rangeBegin, rangeEnd)(assignedNodeBefore, node)
+      }
+    }
+
+    ring = ringAfter
+  }
+
+  private def removeTokens(node: Node[K, V], tokens: Set[Token]): Unit = {
+    val ringAfter = ring -- tokens
+
+    for (token <- tokens) {
+      val rangeBegin = ring.keySet.circular.before(token)
+      val rangeEnd = token
+      val assignedNodeAfter = nodeForHash(token, ring = ringAfter)
+      moveRangeData(rangeBegin, rangeEnd)(node, assignedNodeAfter)
+    }
 
     ring = ringAfter
   }

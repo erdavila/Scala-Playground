@@ -7,8 +7,10 @@ import scala.util.Random
 
 class Test(random: Random) {
 
+  private val NumberOfTokensToChoose = Set(20, 30, 40)
+
   private val coordinator = new Coordinator[String, String](_.hashCode, random)
-  private val nodes = mutable.Set.empty[Node[String, String]]
+  private val numberOfTokens = mutable.Map.empty[Node[String, String], Int]
   private val entries = mutable.Map.empty[String, String]
 
   def run(): Unit = {
@@ -19,14 +21,21 @@ class Test(random: Random) {
     populateEntries().andCheck()
 
     removeNodes().andCheck()
+    changeNumberOfTokens().andCheck()
     populateEntries().andCheck()
+
+    showStats()
   }
 
   private def addNodes(): Unit =
     for (_ <- 1 to 10) {
-      val node = coordinator.addNode()
-      nodes.add(node)
+      val numTokens = chooseOne(NumberOfTokensToChoose)
+      val node = coordinator.addNode(numTokens)
+      numberOfTokens.put(node, numTokens)
     }
+
+  private def chooseOne[A](candidates: Iterable[A]): A =
+    choose(1)(candidates).head
 
   private def populateEntries(): Unit =
     for (i <- 1 to 1000) {
@@ -47,9 +56,15 @@ class Test(random: Random) {
     Seq.fill(10)(random.nextPrintableChar()).mkString
 
   private def removeNodes(): Unit =
-    for (node <- choose(5)(nodes)) {
+    for (node <- choose(5)(numberOfTokens.keys)) {
       coordinator.removeNode(node)
-      nodes.remove(node)
+      numberOfTokens.remove(node)
+    }
+
+  private def changeNumberOfTokens(): Unit =
+    for (node <- choose(10)(numberOfTokens.keys)) {
+      val newNumTokens = chooseOne(NumberOfTokensToChoose)
+      coordinator.setNumTokens(node, newNumTokens)
     }
 
   private def choose[A](count: Int)(candidates: Iterable[A]): Iterable[A] =
@@ -59,7 +74,7 @@ class Test(random: Random) {
     def andCheck(): Unit = {
       f
 
-      val totalEntries = nodes.toSeq.map(_.entriesCount).sum
+      val totalEntries = numberOfTokens.keysIterator.map(_.entriesCount).sum
       assert(totalEntries == entries.size)
 
       for ((key, value) <- entries) {
@@ -67,6 +82,25 @@ class Test(random: Random) {
         val storedValue = node.get(key)
         assert(storedValue == Some(value))
       }
+    }
+  }
+
+  private def showStats(): Unit = {
+    val nodesByNumTokens =
+      numberOfTokens
+        .groupBy { case (node, numTokens) => numTokens }
+        .mapValues { _.keySet }
+        .toSeq
+        .sortBy { case (numTokens, nodes) => numTokens }
+
+    println(Seq("numTokens", "numNodes", "avgEntries").mkString("  "))
+    for ((numTokens, nodes) <- nodesByNumTokens) {
+      val totalEntries = nodes.map { _.entriesCount }.sum
+      printf("%9d  %8d  %10.2f\n",
+        numTokens,
+        nodes.size,
+        totalEntries / nodes.size.toDouble
+      )
     }
   }
 }
