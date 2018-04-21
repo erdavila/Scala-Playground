@@ -9,11 +9,18 @@ class Test(random: Random) {
 
   private val NumberOfTokensToChoose = Set(20, 30, 40)
 
-  private val coordinator = new Coordinator[String, String](_.hashCode, random)
+  private var replicationFactor = 3
+  private val coordinator = new Coordinator[String, String](replicationFactor, _.hashCode, random)
   private val numberOfTokens = mutable.Map.empty[Node[String, String], Int]
   private val entries = mutable.Map.empty[String, String]
 
   def run(): Unit = {
+    addNodes(1).andCheck()
+    populateEntries().andCheck()
+    addNodes(1).andCheck()
+    addNodes(1).andCheck()
+    addNodes(1).andCheck()
+
     addNodes().andCheck()
     populateEntries().andCheck()
 
@@ -21,14 +28,19 @@ class Test(random: Random) {
     populateEntries().andCheck()
 
     removeNodes().andCheck()
+    changeReplicationFactor().andCheck()
     changeNumberOfTokens().andCheck()
     populateEntries().andCheck()
 
     showStats()
+
+    removeNodes(numberOfTokens.size - 3).andCheck()
+    removeNodes(numberOfTokens.size - 2).andCheck()
+    removeNodes(numberOfTokens.size - 1).andCheck()
   }
 
-  private def addNodes(): Unit =
-    for (_ <- 1 to 10) {
+  private def addNodes(numNodes: Int = 10): Unit =
+    for (_ <- 1 to numNodes) {
       val numTokens = chooseOne(NumberOfTokensToChoose)
       val node = coordinator.addNode(numTokens)
       numberOfTokens.put(node, numTokens)
@@ -55,8 +67,14 @@ class Test(random: Random) {
   private def randomString(): String =
     Seq.fill(10)(random.nextPrintableChar()).mkString
 
-  private def removeNodes(): Unit =
-    for (node <- choose(5)(numberOfTokens.keys)) {
+  private def changeReplicationFactor(): Unit = {
+    val newReplicationFactor = 2
+    coordinator.setReplicationFactor(newReplicationFactor)
+    replicationFactor = newReplicationFactor
+  }
+
+  private def removeNodes(numNodes: Int = 5): Unit =
+    for (node <- choose(numNodes)(numberOfTokens.keys)) {
       coordinator.removeNode(node)
       numberOfTokens.remove(node)
     }
@@ -74,11 +92,17 @@ class Test(random: Random) {
     def andCheck(): Unit = {
       f
 
-      val totalEntries = numberOfTokens.keysIterator.map(_.entriesCount).sum
-      assert(totalEntries == entries.size)
+      val effectiveReplicationFactor = numberOfTokens.size min replicationFactor
 
-      for ((key, value) <- entries) {
-        val node = coordinator.nodeForKey(key)
+      val totalEntries = numberOfTokens.keysIterator.map(_.entriesCount).sum
+      assert(totalEntries == entries.size * effectiveReplicationFactor)
+
+      for {
+        (key, value) <- entries
+        nodes = coordinator.nodesForKey(key)
+        _ = assert(nodes.size == effectiveReplicationFactor)
+        node <- nodes
+      } {
         val storedValue = node.get(key)
         assert(storedValue == Some(value))
       }
