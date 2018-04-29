@@ -2,7 +2,7 @@ package mapgeneric
 
 object Test {
 
-  private case class Person(name: String, age: Int)
+  private case class Person(name: String, age: Option[Int])
 
   def main(args: Array[String]): Unit = {
     toMap()
@@ -10,10 +10,20 @@ object Test {
   }
 
   private def toMap(): Unit = {
-    val person = Person("John", 37)
-    val map = MapGeneric[Person].toMap(person)
-    val expected = Map("name" -> "John", "age" -> 37)
-    assert(map == expected, map)
+    def test(person: Person, expected: Map[String, Any]): Unit = {
+      val map = MapGeneric[Person].toMap(person)
+      assert(map == expected, map)
+    }
+
+    test( // complete
+      Person("John", Some(37)),
+      Map("name" -> "John", "age" -> 37)
+    )
+
+    test( // no age
+      Person("John", None),
+      Map("name" -> "John")
+    )
 
     println("toMap OK")
   }
@@ -29,7 +39,7 @@ object Test {
 
     test( // complete
       Map("name" -> "John", "age" -> 37),
-      Some(Person("John", 37)),
+      Some(Person("John", Some(37))),
     )
 
     testNone( // no name
@@ -40,8 +50,9 @@ object Test {
       Map("name" -> 'John, "age" -> 37)
     )
 
-    testNone( // no age
-      Map("name" -> "John")
+    test( // no age
+      Map("name" -> "John"),
+      Some(Person("John", None)),
     )
 
     testNone( // wrongly typed age
