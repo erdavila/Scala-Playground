@@ -4,6 +4,7 @@ import shapeless._
 import shapeless.::
 import shapeless.labelled.FieldType
 import shapeless.labelled.field
+import shapeless.syntax.typeable._
 
 trait FromMap[A] {
   def apply(map: Map[String, Any]): Option[A]
@@ -53,14 +54,41 @@ object MapToRepr {
     }
 }
 
+trait MaybeFromMap[A] {
+  def apply(map: Map[String, Any]): Option[A]
+}
+
+trait LowPriorityMaybeFromMap {
+  implicit def withoutFromMap[A]: MaybeFromMap[A] =
+    create[A] { _ => None }
+
+  protected def create[A](f: Map[String, Any] => Option[A]): MaybeFromMap[A] =
+    new MaybeFromMap[A] {
+      def apply(map: Map[String, Any]): Option[A] = f(map)
+    }
+}
+
+object MaybeFromMap extends LowPriorityMaybeFromMap {
+  implicit def withFromMap[A](implicit fromMap: FromMap[A]): MaybeFromMap[A] =
+    create[A] { fromMap(_) }
+}
+
 trait ValueFrom[V] {
   def apply(option: Option[Any]): Option[V]
 }
 
 trait LowPriorityValueFrom {
-  implicit def valueFrom[V](implicit typeable: Typeable[V]): ValueFrom[V] =
+  implicit def valueFrom[V](
+    implicit
+      typeable: Typeable[V],
+      maybeFromMap: MaybeFromMap[V]
+  ): ValueFrom[V] =
     create[V] { option =>
-      option flatMap { typeable.cast }
+      option flatMap { value =>
+        val cast = typeable.cast(value)
+        lazy val fromMap = value.cast[Map[String, Any]].flatMap { maybeFromMap(_) }
+        cast orElse fromMap
+      }
     }
 
   protected def create[V](f: Option[Any] => Option[V]): ValueFrom[V] =

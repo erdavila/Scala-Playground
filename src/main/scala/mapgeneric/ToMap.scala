@@ -71,4 +71,9 @@ object ValueOf extends LowPriorityValueOf {
     create[Option[V], O] { option =>
       option flatMap { valueOf(_) }
     }
+
+  implicit def valueOfCaseClass[CC](implicit ToMap: ToMap[CC]): Aux[CC, Map[String, Any]] =
+    create[CC, Map[String, Any]] { cc =>
+      Some(ToMap(cc))
+    }
 }
