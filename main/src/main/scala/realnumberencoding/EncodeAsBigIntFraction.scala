@@ -1,6 +1,6 @@
 package realnumberencoding
 
-import fraction.Fraction
+import numbers.Fraction
 
 object EncodeAsBigIntFraction extends Encode {
 

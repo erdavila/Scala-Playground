@@ -1,7 +1,7 @@
-package fraction.test
+package numbers.test
 
 import TinyInt.FromInt
-import fraction.Fraction
+import numbers.Fraction
 
 object FractionTest extends FractionTestSupport {
 

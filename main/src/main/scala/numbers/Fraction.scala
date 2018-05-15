@@ -1,4 +1,4 @@
-package fraction
+package numbers
 
 import scala.annotation.tailrec
 

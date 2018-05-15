@@ -1,4 +1,4 @@
-package fraction.test
+package numbers.test
 
 import scala.language.implicitConversions
 
