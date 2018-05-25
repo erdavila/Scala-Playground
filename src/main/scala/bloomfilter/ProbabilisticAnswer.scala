@@ -1,0 +1,5 @@
+package bloomfilter
+
+sealed trait ProbabilisticAnswer
+case object DefinitivelyNot extends ProbabilisticAnswer
+case object Possibly extends ProbabilisticAnswer
