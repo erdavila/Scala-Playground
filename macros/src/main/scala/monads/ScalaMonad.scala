@@ -7,3 +7,4 @@ trait ScalaMonad[A] extends Monad[A] {
 
   def map[B](f: A => B): M[B] = macro MonadMacros.fmapImpl
 }
+
