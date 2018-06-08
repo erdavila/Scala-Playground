@@ -1,7 +1,7 @@
 name := "Scala Playground"
 version := "1.0"
 
-scalaVersion in ThisBuild := "2.12.4"
+scalaVersion in ThisBuild := "2.12.6"
 scalacOptions in ThisBuild += "-feature"
 scalacOptions in ThisBuild += "-deprecation"
 
