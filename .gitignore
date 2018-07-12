@@ -1,6 +1,8 @@
 .cache-main
 .classpath
+.idea/
 .project
 .settings/
 bin/
+build/
 target/
