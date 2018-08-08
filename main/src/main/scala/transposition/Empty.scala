@@ -2,55 +2,60 @@ package transposition
 
 import scala.collection.generic.CanBuildFrom
 import scala.language.higherKinds
-import shapeless.::
-import shapeless.HList
-import shapeless.HNil
+import shapeless.{HList, HNil}
 
-trait Empty[L] {
-  def apply(): L
+trait Empty[Tag <: SeqTag, S] {
+  def apply(): S
 }
 
 object Empty {
 
-  implicit def emptySeq[
-    S[X] <: S SeqOf X,
+  implicit def scalaSeqEmpty[
+    S[_] <: Seq[_],
     A,
   ](
-    implicit cbf: CanBuildFrom[_, A, S[A]]
+    implicit cbf: CanBuildFrom[S[A], A, S[A]]
   ): Empty[
-    S[A], // L
+    HomoSeqTag[S], // Tag
+    S[A], // S
   ] =
     () => {
       val builder = cbf()
       builder.result()
     }
 
-  implicit def emptyHNil: Empty[
-    HNil, // L
+  implicit val hnilEmpty: Empty[
+    HeteroSeqTag[HList], // Tag
+    HNil, // S
   ] =
     () => HNil
 
-  implicit def emptyTransposedHNil: Empty[
-    TransposedHNil // L
-  ] =
-    () => TransposedHNil
-
-  implicit def emptyHConsOfSeqs[
-    S[X] <: S SeqOf X,
-    HA, T <: HList,
+  implicit def heteroSeqOfHomoSeqsEmpty[
+    S,
+    STag <: HeteroSeqTag[_],
+    HTag <: SeqTag,
+    H, T,
   ](
     implicit
-      emptyHead: Empty[S[HA]],
-      emptyTail: Empty[T],
+      consS: Cons[H, T, STag, S],
+      emptyH: Empty[HTag, H],
+      emptyT: Empty[STag, T],
   ): Empty[
-    S[HA] :: T, // L
+    STag, // Tag
+    S, // S
   ] =
-    () => emptyHead() :: emptyTail()
+    () => {
+      val h = emptyH()
+      val t = emptyT()
+      consS(h, t)
+    }
 
-  def dummy[
-    L,
+  private[transposition] def dummy[
+    Tag <: SeqTag,
+    S,
   ]: Empty[
-    L, // L
+    Tag, // Tag
+    S, // S
   ] =
     () => UnreachableCode_!!!
 }

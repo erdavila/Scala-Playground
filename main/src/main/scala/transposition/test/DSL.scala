@@ -7,7 +7,7 @@ object DSL {
   def transposed[I](input: I): Transposed[I] = new Transposed[I](input)
 
   class Transposed[I](input: I) {
-    def must[O](implicit transposer: Transposer.Aux[I, O]): Must[I, O] = {
+    def must[O](implicit transposer: Transposer[I, O]): Must[I, O] = {
       val output: O = input.transposed
       new Must[I, O](input, output)
     }

@@ -1,60 +1,60 @@
 package transposition
 
+import scala.collection.SeqLike
 import scala.language.higherKinds
-import shapeless.::
-import shapeless.HList
-import shapeless.HNil
+import shapeless.{::, HList}
 
-trait Uncons[L, H, T] {
-  def apply(l: L): Option[(H, T)]
+trait Uncons[S, Tag <: SeqTag, H, T] {
+  def apply(s: S): Option[(H, T)]
 }
 
 object Uncons {
 
-  implicit def seqUncons[
-    S[X] <: S SeqOf X,
+  implicit def scalaSeqLikeUncons[
+    S[X] <: SeqLike[X, S[X]],
     A,
-  ]: Uncons[
-    S[A], // L
-    A,    // H
-    S[A], // T
+  ]: HomoSeqUncons[
+    S[A], // S
+    HomoSeqTag[S], // Tag
+    A, // A
   ] =
-    (l: S[A]) =>
-      if (l.isEmpty) {
+    (s: S[A]) =>
+      if (s.isEmpty) {
         None
       } else {
-        Some((l.head, l.tail))
+        Some((s.head, s.tail))
       }
 
-  implicit def hnilUncons: Uncons[
-    HNil,    // L
-    Nothing, // H
-    Nothing, // T
-  ] =
-    (_: HNil) => None
-
-  implicit def transposedHNilUncons: Uncons[
-    TransposedHNil, // L
-    Nothing,        // H
-    Nothing,        // T
-  ] =
-    (_: TransposedHNil) => None
-
-  implicit def hconUncons[
-    H, T <: HList,
+  implicit def hlistUncons[
+    H, T <: HList
   ]: Uncons[
-    H :: T, // L
-    H,      // H
-    T,      // T
-  ] =
-    (l: H :: T) => Some((l.head, l.tail))
-
-  def dummy[
-    L, H, T
-  ]: Uncons[
-    L, // L
+    H :: T, // S
+    HeteroSeqTag[HList], // Tag
     H, // H
     T, // T
   ] =
-    (_: L) => UnreachableCode_!!!
+    (s: H :: T) => Some((s.head, s.tail))
+
+  private[transposition] def emptySeqUncons[
+    S,
+    Tag <: SeqTag,
+  ]: Uncons[
+    S, // S
+    Tag, // Tag
+    Nothing, // H
+    Nothing, // T
+  ] =
+    (_: S) => None
+
+  private[transposition] def dummy[
+    S,
+    Tag <: SeqTag,
+    H, T,
+  ]: Uncons[
+    S, // S
+    Tag, // Tag
+    H, // H
+    T, // T
+  ] =
+    (s: S) => UnreachableCode_!!!
 }

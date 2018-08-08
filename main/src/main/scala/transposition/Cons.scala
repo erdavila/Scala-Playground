@@ -1,26 +1,25 @@
 package transposition
 
+import scala.collection.SeqLike
 import scala.collection.generic.CanBuildFrom
 import scala.language.higherKinds
-import shapeless.::
-import shapeless.HList
-import shapeless.HNil
+import shapeless.{::, HList}
 
-trait Cons[H, T, L] {
-  def apply(h: H, t: T): L
+trait Cons[H, T, Tag <: SeqTag, S] {
+  def apply(h: H, t: T): S
 }
 
 object Cons {
 
-  implicit def seqCons[
-    S[X] <: S SeqOf X,
-    A
+  implicit def scalaSeqLikeCons[
+    A,
+    S[X] <: SeqLike[X, S[X]],
   ](
-    implicit cbf: CanBuildFrom[_, A, S[A]]
-  ): Cons[
-    A,    // H
+    implicit cbf: CanBuildFrom[S[A], A, S[A]]
+  ): HomoSeqCons[
+    A, // H
     S[A], // T
-    S[A], // L
+    HomoSeqTag[S], // Tag
   ] =
     (h: A, t: S[A]) => {
       val builder = cbf()
@@ -29,21 +28,25 @@ object Cons {
       builder.result()
     }
 
-  implicit def hconsCons[
-    H, T <: HList,
-  ]: Cons[
-    H,      // H
-    T,      // T
-    H :: T, // L
-  ] =
-    (h: H, t: T) => h :: t
-
-  def dummy[
-    H, T, L,
+  implicit def hlistCons[
+    H, T <: HList
   ]: Cons[
     H, // H
     T, // T
-    L, // L
+    HeteroSeqTag[HList], // Tag
+    H :: T, // S
   ] =
-    (_: H, _: T) => UnreachableCode_!!!
+    (h: H, t: T) => h :: t
+
+  private[transposition] def dummy[
+    H, T,
+    Tag <: SeqTag,
+    S,
+  ]: Cons[
+    H, // H
+    T, // T
+    Tag, // Tag
+    S, // S
+  ] =
+    (h: H, t: T) => UnreachableCode_!!!
 }

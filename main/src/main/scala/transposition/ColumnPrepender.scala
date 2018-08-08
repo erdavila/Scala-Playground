@@ -1,11 +1,6 @@
 package transposition
 
-import scala.language.higherKinds
-import shapeless.::
-import shapeless.HList
-import shapeless.HNil
-
-trait ColumnPrepender[C, M, RTag <: ListTag, MW] {
+trait ColumnPrepender[C, M, CTag <: SeqTag, RTag <: SeqTag, MW] {
   def apply(c: C, m: M): MW
 }
 
@@ -14,15 +9,16 @@ object ColumnPrepender {
   private def columnPrepend[
     C, CH, CT,
     M, MH, MT,
-    RTag <: ListTag,
+    CTag <: SeqTag, // for C, CT, M, MT, MW, MWT
+    RTag <: SeqTag, // for MH, MWH
     MW, MWH, MWT,
   ](
-    unconsM: Uncons[M, MH, MT],
-    unconsC: Uncons[C, CH, CT],
-    consMWH: Cons[CH, MH, MWH],
-    prependColumnTail: ColumnPrepender[CT, MT, RTag, MWT],
-    consMW: Cons[MWH, MWT, MW],
-    toSingleColumnMatrix: ToSingleColumnMatrix[C, RTag, MW],
+    unconsM: Uncons[M, CTag, MH, MT],
+    unconsC: Uncons[C, CTag, CH, CT],
+    consMWH: Cons[CH, MH, RTag, MWH],
+    prependColumnTail: ColumnPrepender[CT, MT, CTag, RTag, MWT],
+    consMW: Cons[MWH, MWT, CTag, MW],
+    toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
   )(c: C, m: M): MW =
     unconsM(m) map { case (mh, mt) =>
       val Some((ch, ct)) = unconsC(c)
@@ -33,33 +29,195 @@ object ColumnPrepender {
       toSingleColumnMatrix(c)
     }
 
-  implicit def seqColumnPrepender[
-    S[X] <: S SeqOf X,
-    A,
-    MR,
-    RTag <: ListTag,
-    MRW,
+  implicit def homoSeqOfHomoSeqsColumnPrepend[
+    C, // =:= CT
+    A, // =:= CH
+    CTag <: SeqTag,
+    RTag <: SeqTag,
+    RW, // =:= MWH =:= MH
+    MW, // =:= MWT =:= M =:= MT
   ](
     implicit
-      unconsM: Uncons[S[MR], MR, S[MR]],
-      unconsC: Uncons[S[A], A, S[A]],
-      consMWH: Cons[A, MR, MRW],
-      consMW: Cons[MRW, S[MRW], S[MRW]],
-      toSingleColumnMatrix: ToSingleColumnMatrix[S[A], RTag, S[MRW]],
+      unconsC: HomoSeqUncons[C, CTag, A],
+      consMWH: HomoSeqCons[A, RW, RTag],
+      unconsM: HomoSeqUncons[MW, CTag, RW],
+      consMW: HomoSeqCons[RW, MW, CTag],
+      toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
   ): ColumnPrepender[
-    S[A],   // C
-    S[MR],  // M
-    RTag,   // RTag
-    S[MRW], // MW
+    C, // C <-
+    MW, // M ->
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
   ] =
-    new ColumnPrepender[S[A], S[MR], RTag, S[MRW]] {
-      def apply(c: S[A], m: S[MR]): S[MRW] =
-        columnPrepend[
-          S[A], A, S[A],       // C, CH, CT,
-          S[MR], MR, S[MR],    // M, MH, MT,
-          RTag,                // RTag,
-          S[MRW], MRW, S[MRW], // MW, MWH, MWT
-        ](
+    recursiveColumnPrepender(
+      unconsM = unconsM,
+      unconsC = unconsC,
+      consMWH = consMWH,
+      consMW = consMW,
+      toSingleColumnMatrix = toSingleColumnMatrix,
+    )
+
+  implicit def homoSeqOfHeteroSeqsColumnPrepender[
+    C, // =:= CT
+    A, // =:= CH
+    M, // =:= MT
+    R, // =:= MH
+    CTag <: SeqTag,
+    RTag <: HeteroSeqTag[_],
+    RW, // =:= MWH
+    MW, // =:= MWT
+  ](
+    implicit
+      unconsM: HomoSeqUncons[M, CTag, R],
+      unconsC: HomoSeqUncons[C, CTag, A],
+      consMWH: Cons[A, R, RTag, RW],
+      consMW: HomoSeqCons[RW, MW, CTag],
+      toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
+  ): ColumnPrepender[
+    C, // C <-
+    M, // M <-
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
+  ] =
+    recursiveColumnPrepender(
+      unconsM = unconsM,
+      unconsC = unconsC,
+      consMWH = consMWH,
+      consMW = consMW,
+      toSingleColumnMatrix = toSingleColumnMatrix,
+    )
+
+  implicit def emptyHeteroSeqColumnPrepender[
+    C,
+    CTag <: HeteroSeqTag[_],
+    RTag <: SeqTag,
+    MW, // =:= M
+  ](
+    implicit
+      ev: IsStaticEmpty[C, CTag],
+      toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
+  ): ColumnPrepender[
+    C, // C <-
+    MW, // M ->
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
+  ] =
+    columnPrepend(
+      unconsM = Uncons.emptySeqUncons[MW, CTag],
+      unconsC = Uncons.dummy,
+      consMWH = Cons.dummy,
+      prependColumnTail = ColumnPrepender.dummy[CTag, RTag],
+      consMW = Cons.dummy,
+      toSingleColumnMatrix = toSingleColumnMatrix,
+    ) _
+
+  implicit def nonEmptyHeteroSeqOfHomoSeqsColumnPrepender[
+    C, CH, CT,
+    CTag <: HeteroSeqTag[_],
+    RTag <: SeqTag,
+    MW, // =:= M
+    MWH, // =:= MH
+    MWT, // =:= MT
+  ](
+    implicit
+      unconsC: Uncons[C, CTag, CH, CT],
+      consMWH: HomoSeqCons[CH, MWH, RTag],
+      prependColumnTail: ColumnPrepender[CT, MWT, CTag, RTag, MWT],
+      unconsM: Uncons[MW, CTag, MWH, MWT],
+      consMW: Cons[MWH, MWT, CTag, MW],
+  ): ColumnPrepender[
+    C, // C <-
+    MW, // M ->
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
+  ] =
+    columnPrepend(
+      unconsM = unconsM,
+      unconsC = unconsC,
+      consMWH = consMWH,
+      prependColumnTail = prependColumnTail,
+      consMW = consMW,
+      toSingleColumnMatrix = ToSingleColumnMatrix.dummy,
+    ) _
+
+  implicit def nonEmptyHeteroSeqOfHeteroSeqsColumnPrepender[
+    C, CH, CT,
+    M, MH, MT,
+    CTag <: HeteroSeqTag[_],
+    RTag <: HeteroSeqTag[_],
+    MW, MWH, MWT,
+  ](
+    implicit
+      unconsM: Uncons[M, CTag, MH, MT],
+      unconsC: Uncons[C, CTag, CH, CT],
+      consMWH: Cons[CH, MH, RTag, MWH],
+      prependColumnTail: ColumnPrepender[CT, MT, CTag, RTag, MWT],
+      consMW: Cons[MWH, MWT, CTag, MW],
+  ): ColumnPrepender[
+    C, // C <-
+    M, // M <-
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
+  ] =
+    columnPrepend(
+      unconsM = unconsM,
+      unconsC = unconsC,
+      consMWH = consMWH,
+      prependColumnTail = prependColumnTail,
+      consMW = consMW,
+      toSingleColumnMatrix = ToSingleColumnMatrix.dummy,
+    ) _
+
+  implicit def transposedEmptyHeteroSeqColumnPrepender[
+    C,
+    CTag <: SeqTag,
+    RTag <: HeteroSeqTag[_],
+    MW,
+  ](
+    implicit toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
+  ): ColumnPrepender[
+    C, // C <-
+    TransposedEmptyHeteroSeq, // M <-
+    CTag, // CTag ->
+    RTag, // RTag <-
+    MW, // MW ->
+  ] =
+    columnPrepend(
+      unconsM = Uncons.emptySeqUncons[TransposedEmptyHeteroSeq, CTag],
+      unconsC = Uncons.dummy,
+      consMWH = Cons.dummy,
+      prependColumnTail = ColumnPrepender.dummy[CTag, RTag],
+      consMW = Cons.dummy,
+      toSingleColumnMatrix = toSingleColumnMatrix,
+    ) _
+
+  private def recursiveColumnPrepender[
+    C, A,
+    M, R,
+    CTag <: SeqTag,
+    RTag <: SeqTag,
+    MW, RW,
+  ](
+    unconsM: HomoSeqUncons[M, CTag, R],
+    unconsC: HomoSeqUncons[C, CTag, A],
+    consMWH: Cons[A, R, RTag, RW],
+    consMW: HomoSeqCons[RW, MW, CTag],
+    toSingleColumnMatrix: ToSingleColumnMatrix[C, CTag, RTag, MW],
+  ): ColumnPrepender[
+    C, // C
+    M, // M
+    CTag, // CTag
+    RTag, // RTag
+    MW, // MW
+  ] =
+    new ColumnPrepender[C, M, CTag, RTag, MW] {
+      override def apply(c: C, m: M): MW =
+        columnPrepend(
           unconsM = unconsM,
           unconsC = unconsC,
           consMWH = consMWH,
@@ -69,168 +227,15 @@ object ColumnPrepender {
         )(c, m)
     }
 
-  implicit def seqOfSeqsColumnPrepender[
-    S1[X] <: S1 SeqOf X,
-    S2[X] <: S2 SeqOf X,
-    A,
-  ](
-    implicit
-      consMWH: Cons[A, S2[A], S2[A]],
-      consMW: Cons[S2[A], S1[S2[A]], S1[S2[A]]],
-      toSingleColumnMatrix: ToSingleColumnMatrix[S1[A], SeqListTag[S2], S1[S2[A]]],
-  ): ColumnPrepender[
-    S1[A],          // C
-    S1[S2[A]],      // M
-    SeqListTag[S2], // RTag
-    S1[S2[A]],      // MW
-  ] =
-    seqColumnPrepender[
-      S1,             // S
-      A,              // A
-      S2[A],          // MR
-      SeqListTag[S2], // RTag,
-      S2[A],          // MRW
-    ]
-
-  implicit def hnilColumnPrepender[
-    RTag <: ListTag,
-  ](
-    implicit
-      unconsM: Uncons[HNil, Nothing, Nothing],
-      toSingleColumnMatrix: ToSingleColumnMatrix[HNil, RTag, HNil],
-  ): ColumnPrepender[
-    HNil, // C
-    HNil, // M
-    RTag, // RTag,
-    HNil, // MW
-  ] =
-    new ColumnPrepender[HNil, HNil, RTag, HNil] {
-      def apply(c: HNil, m: HNil): HNil =
-        columnPrepend[
-          HNil, Nothing, Nothing, // C, CH, CT,
-          HNil, Nothing, Nothing, // M, MH, MT,
-          RTag,                   // RTag,
-          HNil, Nothing, Nothing, // MW, MWH, MWT,
-        ](
-          unconsM = unconsM,
-          unconsC = Uncons.dummy,
-          consMWH = Cons.dummy,
-          prependColumnTail = ColumnPrepender.dummy,
-          consMW = Cons.dummy,
-          toSingleColumnMatrix = toSingleColumnMatrix,
-        )(c, m)
-    }
-
-  implicit def transposedHNilColumnPrepender[
-    C, CH, CT,
-    MW, MWH, MWT,
-  ](
-    implicit
-      unconsM: Uncons[TransposedHNil, Nothing, Nothing],
-      unconsC: Uncons[C, CH, CT],
-      toSingleColumnMatrix: ToSingleColumnMatrix[C, HListListTag, MW],
-      unconsMW: Uncons[MW, MWH, MWT],
-  ): ColumnPrepender[
-    C,              // C
-    TransposedHNil, // M
-    HListListTag,   // RTag
-    MW,             // MW
-  ] =
-    new ColumnPrepender[C, TransposedHNil, HListListTag, MW] {
-      def apply(c: C, m: TransposedHNil): MW =
-        columnPrepend[
-          C, CH, CT,                        // C, CH, CT,
-          TransposedHNil, Nothing, Nothing, // M, MH, MT,
-          HListListTag,                     // RTag,
-          MW, MWH, MWT,                     // MW, MWH, MWT,
-        ](
-          unconsM = unconsM,
-          unconsC = Uncons.dummy,
-          consMWH = Cons.dummy,
-          prependColumnTail = ColumnPrepender.dummy,
-          consMW = Cons.dummy,
-          toSingleColumnMatrix = toSingleColumnMatrix,
-        )(c, m)
-    }
-
-
-  implicit def hconsOfSeqsColumnPrepender[
-    S[X] <: S SeqOf X,
-    CH, CT <: HList,
-    MT <: HList,
-  ](
-    implicit
-      unconsC: Uncons[CH :: CT, CH, CT],
-      consMWH: Cons[CH, S[CH], S[CH]],
-      prependColumnTail: ColumnPrepender[CT, MT, SeqListTag[S], MT],
-      unconsM: Uncons[S[CH] :: MT, S[CH], MT],
-      consMW: Cons[S[CH], MT, S[CH] :: MT],
-  ): ColumnPrepender[
-    CH :: CT,      // C
-    S[CH] :: MT,   // M
-    SeqListTag[S], // RTag,
-    S[CH] :: MT,   // MW
-  ] =
-    new ColumnPrepender[CH :: CT, S[CH] :: MT, SeqListTag[S], S[CH] :: MT] {
-      def apply(c: CH :: CT, m: S[CH] :: MT): S[CH] :: MT =
-        columnPrepend[
-          CH :: CT, CH, CT,       // C, CH, CT,
-          S[CH] :: MT, S[CH], MT, // M, MH, MT,
-          SeqListTag[S],          // RTag,
-          S[CH] :: MT, S[CH], MT, // MW, MWH, MWT,
-        ](
-          unconsM = unconsM,
-          unconsC = unconsC,
-          consMWH = consMWH,
-          prependColumnTail = prependColumnTail,
-          consMW = consMW,
-          toSingleColumnMatrix = ToSingleColumnMatrix.dummy,
-        )(c, m)
-    }
-
-  implicit def hconsOfHListsColumnPrepender[
-    CH, CT <: HList,
-    MH <: HList, MT <: HList,
-    MWT <: HList,
-  ](
-    implicit
-      unconsM: Uncons[MH :: MT, MH, MT],
-      unconsC: Uncons[CH :: CT, CH, CT],
-      consMWH: Cons[CH, MH, CH :: MH],
-      prependColumnTail: ColumnPrepender[CT, MT, HListListTag, MWT],
-      consMW: Cons[CH :: MH, MWT, (CH :: MH) :: MWT],
-  ): ColumnPrepender[
-    CH :: CT,          // C
-    MH :: MT,          // M
-    HListListTag,      // RTag
-    (CH :: MH) :: MWT, // MW
-  ] =
-    new ColumnPrepender[CH :: CT, MH :: MT, HListListTag, (CH :: MH) :: MWT] {
-      def apply(c: CH :: CT, m: MH :: MT): (CH :: MH) :: MWT =
-        columnPrepend[
-          CH :: CT, CH, CT,                 // C, CH, CT,
-          MH :: MT, MH, MT,                 // M, MH, MT,
-          HListListTag,                     // RTag,
-          (CH :: MH) :: MWT, CH :: MH, MWT, // MW, MWH, MWT,
-        ](
-          unconsM = unconsM,
-          unconsC = unconsC,
-          consMWH = consMWH,
-          prependColumnTail = prependColumnTail,
-          consMW = consMW,
-          toSingleColumnMatrix = ToSingleColumnMatrix.dummy,
-        )(c, m)
-    }
-
-  def dummy[
-    C,
-    RTag <: ListTag,
-    MW,
+  private[transposition] def dummy[
+    CTag <: SeqTag,
+    RTag <: SeqTag,
   ]: ColumnPrepender[
-    C,       // C
+    Nothing, // C
     Nothing, // M
-    RTag,    // RTag
-    MW,      // MW
+    CTag, // CTag
+    RTag, // RTag
+    TransposedEmptyHeteroSeq, // MW
   ] =
-    (_: C, _: Nothing) => UnreachableCode_!!!
+    (_: Nothing, _: Nothing) => UnreachableCode_!!!
 }

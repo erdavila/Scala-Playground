@@ -1,20 +1,21 @@
-import scala.collection.SeqLike
 import scala.language.higherKinds
 
 package object transposition {
+
   implicit class MatrixOps[M](val m: M) extends AnyVal {
-    def transposed[MX](implicit transposer: Transposer.Aux[M, MX]): MX =
+    def transposed[MX](implicit transposer: Transposer[M, MX]): MX =
       transposer(m)
   }
 
-  type SeqOf[S[_], A] = SeqLike[A, S[A]]
+  sealed trait SeqTag
+  sealed trait HomoSeqTag[S[_]] extends SeqTag
+  sealed trait HeteroSeqTag[S] extends SeqTag
 
-  sealed trait ListTag
-  sealed trait SeqListTag[S[X] <: S SeqOf X] extends ListTag
-  sealed trait HListListTag extends ListTag
+  final class TransposedEmptyHeteroSeq
+  val TransposedEmptyHeteroSeq = new TransposedEmptyHeteroSeq
 
-  sealed trait TransposedHNil
-  object TransposedHNil extends TransposedHNil
+  type HomoSeqCons[A, S, Tag <: SeqTag] = Cons[A, S, Tag, S]
+  type HomoSeqUncons[S, Tag <: SeqTag, A] = Uncons[S, Tag, A, S]
 
   def UnreachableCode_!!! : Nothing =
     throw new Exception("Supposed unreachable code was reached!")

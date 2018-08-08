@@ -1,57 +1,58 @@
 package transposition
 
-import scala.collection.generic.CanBuildFrom
 import scala.language.higherKinds
-import shapeless.::
-import shapeless.HList
-import shapeless.HNil
 
-trait Single[A, Tag <: ListTag, L] {
-  def apply(a: A): L
+sealed trait Single[A, Tag <: SeqTag, S] {
+  def apply(a: A): S
 }
 
 object Single {
 
-  implicit def seqSingle[
-    S[X] <: S SeqOf X,
+  implicit def homoSeqSingle[
     A,
+    Tag <: SeqTag,
+    S,
   ](
-    implicit cbf: CanBuildFrom[_, A, S[A]]
+    implicit
+      cons: HomoSeqCons[A, S, Tag],
+      empty: Empty[Tag, S],
   ): Single[
-    A,             // A
-    SeqListTag[S], // Tag
-    S[A],          // L
+    A, // A <-
+    Tag, // Tag <-
+    S, // S ->
   ] =
-    (a: A) => {
-      val builder = cbf()
-      builder += a
-      builder.result()
+    new Single[A, Tag, S] {
+      override def apply(a: A): S =
+        cons(a, empty())
     }
 
-  implicit def singleElementHListSingle[
-    H,
-  ]: Single[
-    H   ,         // A
-    HListListTag, // Tag
-    H :: HNil,    // L
+  implicit def heteroSeqSingle[
+    A,
+    Tag <: HeteroSeqTag[_],
+    E, S,
+  ](
+    implicit
+      empty: Empty[Tag, E],
+      cons: Cons[A, E, Tag, S],
+  ): Single[
+    A, // A <-
+    Tag, // Tag <-
+    S, // S ->
   ] =
-    (a: H) => a :: HNil
+    new Single[A, Tag, S] {
+      override def apply(a: A): S =
+        cons(a, empty())
+    }
 
-  implicit def multiElementHListSingle[
-    H, T <: HList,
+  private[transposition] def dummy[
+    A,
   ]: Single[
-    H,            // A
-    HListListTag, // Tag
-    H :: T,       // L
+    A, // A
+    Nothing, // Tag
+    Nothing, // S
   ] =
-    (_: H) => UnreachableCode_!!!
-
-  def dummy[
-    RTag <: ListTag,
-  ]: Single[
-    Nothing, // A
-    RTag,    // Tag
-    Nothing, // L
-  ] =
-    (_: Nothing) => UnreachableCode_!!!
+    new Single[A, Nothing, Nothing] {
+      override def apply(a: A): Nothing =
+        UnreachableCode_!!!
+    }
 }
