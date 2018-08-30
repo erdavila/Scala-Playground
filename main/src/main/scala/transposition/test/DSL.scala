@@ -1,6 +1,6 @@
-package transposed.test
+package transposition.test
 
-import transposed._
+import transposition._
 
 object DSL {
 

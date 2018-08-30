@@ -1,4 +1,4 @@
-package transposed
+package transposition
 
 import scala.collection.generic.CanBuildFrom
 import scala.language.higherKinds

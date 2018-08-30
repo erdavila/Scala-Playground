@@ -1,8 +1,8 @@
-package transposed.test
+package transposition.test
 
 import shapeless.::
 import shapeless.HNil
-import transposed.test.DSL.transposed
+import transposition.test.DSL.transposed
 
 object Test {
 

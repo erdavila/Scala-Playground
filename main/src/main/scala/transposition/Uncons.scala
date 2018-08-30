@@ -1,4 +1,4 @@
-package transposed
+package transposition
 
 import scala.language.higherKinds
 import shapeless.::
