@@ -1,4 +1,4 @@
-package variance2
+package variance
 
 class Invariant[T] {
   def get(): T = ???

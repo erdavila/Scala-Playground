@@ -1,4 +1,4 @@
-package variance2
+package variance
 
 class Covariant[+T] {
   def get(): T = ???

@@ -1,6 +1,4 @@
-package variance2
-
-import scala.reflect.runtime.universe.TypeTag
+package variance
 
 class Contravariant[-T] {
   //def get(): T = ???
