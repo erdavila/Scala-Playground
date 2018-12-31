@@ -1,9 +1,10 @@
 package monads
 
 import monads.Applicative.toOp
+import monads.Run.run
 import scala.language.higherKinds
 
-abstract class MonadTestBase[F[_]: Monad] {
+abstract class MonadTestBase[F[_]: Monad: Run] {
 
   protected val M: Monad[F] = Monad[F]
   import M.Ops
@@ -15,6 +16,7 @@ abstract class MonadTestBase[F[_]: Monad] {
     testFlatten()
     testMonad()
     testLaws()
+    testExtra()
     println("OK " + getClass.getName)
   }
 
@@ -23,14 +25,14 @@ abstract class MonadTestBase[F[_]: Monad] {
   protected final def testLift[A, B](f: A => B, fa: F[A])(expected: F[B]): Unit = {
     val g = M.lift(f)
     val result = g(fa)
-    assert(result == expected)
+    assert(run(result) == run(expected))
   }
 
   protected def testPure(): Unit
 
   protected final def testPure[A](a: A, expected: F[A]): Unit = {
     val result = M.pure(a)
-    assert(result == expected)
+    assert(run(result) == run(expected))
   }
 
   protected def testApplicative(): Unit
@@ -42,14 +44,14 @@ abstract class MonadTestBase[F[_]: Monad] {
   )(expected: F[User]): Unit = {
     val user = (id |@| name |@| rating)(User.curried)
 
-    assert(user == expected)
+    assert(run(user) == run(expected))
   }
 
   protected def testFlatten(): Unit
 
   protected final def testFlatten[A](fa: F[F[A]], expected: F[A]): Unit = {
     val result = fa.flatten
-    assert(result == expected)
+    assert(run(result) == run(expected))
   }
 
   protected def testMonad(): Unit
@@ -65,8 +67,10 @@ abstract class MonadTestBase[F[_]: Monad] {
       rating <- getRatingByName(name)
     } yield User(id, name, rating)
 
-    assert(user == expected)
+    assert(run(user) == run(expected))
   }
+
+  protected def testExtra(): Unit = {}
 
   protected val charToString: Char => String = _.toString + "2"
   protected val stringToInt: String => Int = _.toInt

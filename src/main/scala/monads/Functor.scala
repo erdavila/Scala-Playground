@@ -1,5 +1,6 @@
 package monads
 
+import monads.Run.run
 import scala.language.higherKinds
 
 trait Functor[F[_]] {
@@ -17,16 +18,16 @@ trait Functor[F[_]] {
 object Functor {
   def apply[F[_]](implicit F: Functor[F]): Functor[F] = F
 
-  class Laws[F[_]: Functor] {
+  class Laws[F[_]: Functor: Run] {
     private val M = Functor[F]
     import M.Ops
 
     def checkIdentity[A](fa: F[A]): Boolean =
-      fa.map(identity) == identity(fa)
+      run(fa.map(identity)) == run(identity(fa))
 
     def checkDistributivity[A, B, C](fa: F[A], f: A => B, g: B => C): Boolean =
-      fa.map(f andThen g) == fa.map(f).map(g)
+      run(fa.map(f andThen g)) == run(fa.map(f).map(g))
   }
 
-  def laws[F[_]: Functor]: Laws[F] = new Laws[F]
+  def laws[F[_]: Functor: Run]: Laws[F] = new Laws[F]
 }

@@ -22,19 +22,19 @@ trait Monad[F[_]] extends Applicative[F] {
 object Monad {
   def apply[F[_]](implicit M: Monad[F]): Monad[F] = M
 
-  class Laws[F[_]: Monad] {
+  class Laws[F[_]: Monad](implicit run: Run[F]) {
     private val M = Monad[F]
     import M.Ops
 
     def checkLeftIdentity[A, B](a: A, f: A => F[B]): Boolean =
-      M.unit(a).flatMap(f) == f(a)
+      run(M.unit(a).flatMap(f)) == run(f(a))
 
     def checkRightIdentity[A](ma: F[A]): Boolean =
-      ma.flatMap(M.unit) == ma
+      run(ma.flatMap(M.unit)) == run(ma)
 
     def checkAssociativity[A, B, C](fa: F[A], f: A => F[B], g: B => F[C]): Boolean =
-      fa.flatMap(f).flatMap(g) == fa.flatMap { a => f(a).flatMap(g) }
+      run(fa.flatMap(f).flatMap(g)) == run(fa.flatMap { a => f(a).flatMap(g) })
   }
 
-  def laws[F[_]: Monad]: Laws[F] = new Laws[F]
+  def laws[F[_]: Monad: Run]: Laws[F] = new Laws[F]
 }
