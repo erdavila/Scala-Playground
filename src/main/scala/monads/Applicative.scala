@@ -79,24 +79,36 @@ object Applicative {
     }
   }
 
-  class Laws[F[_]: Applicative](implicit run: Run[F]) {
+  class Laws[F[_]: Applicative: Run] extends monads.Laws[F] {
     private val M = Applicative[F]
     import M.Ops
 
     def checkIdentity[A](fa: F[A]): Boolean =
-      run(fa.ap(M.pure(identity[A](_)))) == run(fa)
+      equivalent(
+        fa.ap(M.pure(identity[A](_))),
+        fa,
+      )
 
     def checkHomomorphism[A, B](a: A, f: A => B): Boolean =
-      run(M.pure(a).ap(M.pure(f))) == run(M.pure(f(a)))
+      equivalent(
+        M.pure(a).ap(M.pure(f)),
+        M.pure(f(a)),
+      )
 
     def checkInterchange[A, B](a: A, ff: F[A => B]): Boolean = {
       val $ = (y: A) => (f: A => B) => f(y)
-      run(M.pure(a).ap(ff)) == run(ff.ap(M.pure($(a))))
+      equivalent(
+        M.pure(a).ap(ff),
+        ff.ap(M.pure($(a))),
+      )
     }
 
     def checkComposition[A, B, C](u: F[B => C], v: F[A => B], w: F[A]): Boolean = {
       val compose = (f: B => C) => (g: A => B) => f compose g
-      run(w.ap(v.ap(u.ap(M.pure(compose))))) == run(w.ap(v).ap(u))
+      equivalent(
+        w.ap(v.ap(u.ap(M.pure(compose)))),
+        w.ap(v).ap(u),
+      )
     }
   }
 
