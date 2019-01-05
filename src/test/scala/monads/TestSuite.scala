@@ -6,5 +6,6 @@ object TestSuite {
     ListMonadTest.main(args)
     IdentityMonadTest.main(args)
     IOMonadTest.main(args)
+    WriterMonadTest.main(args)
   }
 }
