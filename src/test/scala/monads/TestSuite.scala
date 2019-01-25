@@ -8,5 +8,6 @@ object TestSuite {
     IOMonadTest.main(args)
     WriterMonadTest.main(args)
     ReaderMonadTest.main(args)
+    StateMonadTest.main(args)
   }
 }
