@@ -9,5 +9,6 @@ object TestSuite {
     WriterMonadTest.main(args)
     ReaderMonadTest.main(args)
     StateMonadTest.main(args)
+    ContinuationMonadTest.main(args)
   }
 }
